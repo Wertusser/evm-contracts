@@ -5,38 +5,38 @@
   "projectType": "application",
   "targets": {
     "build": {
-      "executor": "@nrwl/workspace:run-commands",
+      "executor": "nx:run-commands",
       "options": {
         "command": "forge build --root apps/evm-contracts"
       }
     },
     "install": {
-      "executor": "@nrwl/workspace:run-commands",
+      "executor": "nx:run-commands",
       "options": {
-        "command": "forge install --root apps/evm-contracts {args.package} --no-git"
+        "command": "forge install --root apps/evm-contracts {args.name} --no-git"
       }
     },
     "deployLocal": {
-      "executor": "@nrwl/workspace:run-commands",
+      "executor": "nx:run-commands",
       "options": {
         "command": "forge create --rpc-url http://127.0.0.1:8545/ -i src/${args.contract}.sol:Contract",
         "cwd": "./apps/evm-contracts"
       }
     },
     "test": {
-      "executor": "@nrwl/workspace:run-commands",
+      "executor": "nx:run-commands",
       "options": {
         "command": "forge test --root apps/evm-contracts"
       }
     },
     "trace": {
-      "executor": "@nrwl/workspace:run-commands",
+      "executor": "nx:run-commands",
       "options": {
         "command": "forge test -vvvv --root apps/evm-contracts"
       }
     },
     "clean": {
-      "executor": "@nrwl/workspace:run-commands",
+      "executor": "nx:run-commands",
       "options": {
         "command": "forge clean --root apps/evm-contracts"
       }
