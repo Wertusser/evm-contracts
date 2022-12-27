@@ -6,7 +6,7 @@ pragma solidity ^0.8.13;
  * @author Aave
  * @notice Defines the basic interface for a Rewards Controller.
  */
-interface IRewardController {
+interface IAaveRewardController {
     /**
      * @dev Claims all rewards for a user to the desired address, on all the assets of the pool, accumulating the pending rewards
      * @param assets The list of assets to check eligible distributions before claiming rewards

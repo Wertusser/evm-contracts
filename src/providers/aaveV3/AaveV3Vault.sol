@@ -57,9 +57,9 @@ contract AaveV3Vault is ERC4626 {
     constructor(
         ERC20 asset_,
         ERC20 aToken_,
-        IPool lendingPool_,
+        IAavePool lendingPool_,
         address rewardRecipient_,
-        IRewardsController rewardsController_
+        IAaveRewardController rewardsController_
     ) ERC4626(asset_, _vaultName(asset_), _vaultSymbol(asset_)) {
         aToken = aToken_;
         lendingPool = lendingPool_;

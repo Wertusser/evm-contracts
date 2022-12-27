@@ -7,7 +7,7 @@
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "forge build --root apps/evm-contracts"
+        "command": "forge build --root apps/evm-contracts --extra-output abi"
       }
     },
     "install": {

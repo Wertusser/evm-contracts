@@ -29,10 +29,12 @@ contract StargateVault is ERC4626 {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    constructor(ERC20 asset_, IStargateRouter router_)
+    constructor(ERC20 asset_, ERC20 lpToken_, address poolId_, IStargateRouter router_)
         ERC4626(asset_, _vaultName(asset_), _vaultSymbol(asset_))
     {
         stargateRouter = router_;
+	lpToken = lpToken_;
+	poolId = poolId_;
     }
 
     /// -----------------------------------------------------------------------
@@ -40,7 +42,7 @@ contract StargateVault is ERC4626 {
     /// -----------------------------------------------------------------------
 
     function totalAssets() public view virtual override returns (uint256) {
-        return lpToken.balanceOfUnderlying(address(this));
+        return lpToken.balanceOf(address(this));
     }
 
     function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal virtual override {
@@ -48,7 +50,7 @@ contract StargateVault is ERC4626 {
         /// Withdraw assets from Stargate
         /// -----------------------------------------------------------------------
 
-        stargateRouter.instantRedeemLocal(poolId, assets, address(this));
+        stargateRouter.instantRedeemLocal(0, assets, address(this));
     }
 
     function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal virtual override {
@@ -60,7 +62,7 @@ contract StargateVault is ERC4626 {
         asset.safeApprove(address(stargateRouter), assets);
 
         // deposit into stargate pool
-        stargateRouter.addLiquidity(poolId, assets, address(this));
+        stargateRouter.addLiquidity(0, assets, address(this));
     }
 
     function maxWithdraw(address owner) public view override returns (uint256) {
