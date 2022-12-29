@@ -18,7 +18,7 @@ contract DeployScript is Script {
         vm.startBroadcast(deployerPrivateKey);
         
         deployed = new AaveV3VaultFactory(lendingPool, rewardRecipient, rewardsController);
-
+        // deployed = AaveV3VaultFactory(address(0xA618c7a92243C33E74c9157359D0BDFa66D4e2CD));
         // Investments deploy
         // WETH
         deployed.createERC4626(ERC20(address(0x4200000000000000000000000000000000000006)));
