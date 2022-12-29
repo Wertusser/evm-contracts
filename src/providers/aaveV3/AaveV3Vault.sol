@@ -4,8 +4,8 @@ pragma solidity ^0.8.13;
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC4626} from "solmate/mixins/ERC4626.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {IAavePool} from "./external/IAavePool.sol";
-import {IAaveRewardController} from "./external/IAaveRewardController.sol";
+import {IPool} from "./external/IPool.sol";
+import {IRewardsController} from "./external/IRewardsController.sol";
 
 
 contract AaveV3Vault is ERC4626 {
@@ -45,10 +45,10 @@ contract AaveV3Vault is ERC4626 {
     address public immutable rewardRecipient;
 
     /// @notice The Aave Pool contract
-    IAavePool public immutable lendingPool;
+    IPool public immutable lendingPool;
 
     /// @notice The Aave RewardsController contract
-    IAaveRewardController public immutable rewardsController;
+    IRewardsController public immutable rewardsController;
 
     /// -----------------------------------------------------------------------
     /// Constructor
@@ -57,9 +57,9 @@ contract AaveV3Vault is ERC4626 {
     constructor(
         ERC20 asset_,
         ERC20 aToken_,
-        IAavePool lendingPool_,
+        IPool lendingPool_,
         address rewardRecipient_,
-        IAaveRewardController rewardsController_
+        IRewardsController rewardsController_
     ) ERC4626(asset_, _vaultName(asset_), _vaultSymbol(asset_)) {
         aToken = aToken_;
         lendingPool = lendingPool_;

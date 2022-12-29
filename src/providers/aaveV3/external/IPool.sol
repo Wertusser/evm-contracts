@@ -2,12 +2,12 @@
 pragma solidity ^0.8.13;
 
 /**
- * @title IAavePool
+ * @title IPool
  * @author Aave
  * @notice Defines the basic interface for an Aave Pool.
  *
  */
-interface IAavePool {
+interface IPool {
     struct ReserveConfigurationMap {
         //bit 0-15: LTV
         //bit 16-31: Liq. threshold

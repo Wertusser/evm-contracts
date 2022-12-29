@@ -19,7 +19,7 @@
     "deployLocal": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "forge create --rpc-url http://127.0.0.1:8545/ -i src/${args.contract}.sol:Contract",
+        "command": "forge create --rpc-url http://127.0.0.1:8545/ -i src/{args.contract}.sol:{args.name}",
         "cwd": "./apps/evm-contracts"
       }
     },
