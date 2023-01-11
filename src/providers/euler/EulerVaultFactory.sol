@@ -62,7 +62,7 @@ contract EulerVaultFactory is ERC4626Factory {
                 keccak256(
                     abi.encodePacked(
                         // Deployment bytecode:
-                        type(EulerERC4626).creationCode,
+                        type(EulerVault).creationCode,
                         // Constructor arguments:
                         abi.encode(asset, euler, IEulerEToken(markets.underlyingToEToken(address(asset))))
                     )

@@ -90,7 +90,7 @@ contract CompoundVaultFactory is ERC4626Factory {
                 keccak256(
                     abi.encodePacked(
                         // Deployment bytecode:
-                        type(CompoundERC4626).creationCode,
+                        type(CompoundVault).creationCode,
                         // Constructor arguments:
                         abi.encode(asset, comp, underlyingToCToken[asset], rewardRecipient, comptroller)
                     )
