@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.13;
 
-import {ERC20} from "solmate/tokens/ERC20.sol";
-import {ERC4626} from "solmate/mixins/ERC4626.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {ERC20} from 'solmate/tokens/ERC20.sol';
+import {ERC4626} from 'solmate/mixins/ERC4626.sol';
+import {SafeTransferLib} from 'solmate/utils/SafeTransferLib.sol';
 
-import {IStargateRouter} from "./external/IStargateRouter.sol";
+import {IPool} from './external/IPool.sol';
 
 contract StargateVault is ERC4626 {
     /// -----------------------------------------------------------------------
@@ -19,22 +19,30 @@ contract StargateVault is ERC4626 {
     /// -----------------------------------------------------------------------
 
     /// @notice The stargate bridge router contract
-    IStargateRouter public immutable stargateRouter;
+    IPool public immutable stargateRouter;
     /// @notice The stargate pool
     address public immutable poolId;
     /// @notice The stargate lp asset
     ERC20 public immutable lpToken;
 
     /// -----------------------------------------------------------------------
+    /// Mutable params
+    /// -----------------------------------------------------------------------
+
+
+    /// -----------------------------------------------------------------------
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    constructor(ERC20 asset_, ERC20 lpToken_, address poolId_, IStargateRouter router_)
-        ERC4626(asset_, _vaultName(asset_), _vaultSymbol(asset_))
-    {
+    constructor(
+        ERC20 asset_,
+        ERC20 lpToken_,
+        address poolId_,
+        IPool pool_
+    ) ERC4626(asset_, _vaultName(asset_), _vaultSymbol(asset_)) {
         stargateRouter = router_;
-	lpToken = lpToken_;
-	poolId = poolId_;
+        lpToken = lpToken_;
+        poolId = poolId_;
     }
 
     /// -----------------------------------------------------------------------
@@ -45,7 +53,10 @@ contract StargateVault is ERC4626 {
         return lpToken.balanceOf(address(this));
     }
 
-    function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal virtual override {
+    function beforeWithdraw(
+        uint256 assets,
+        uint256 /*shares*/
+    ) internal virtual override {
         /// -----------------------------------------------------------------------
         /// Withdraw assets from Stargate
         /// -----------------------------------------------------------------------
@@ -53,7 +64,10 @@ contract StargateVault is ERC4626 {
         stargateRouter.instantRedeemLocal(0, assets, address(this));
     }
 
-    function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal virtual override {
+    function afterDeposit(
+        uint256 assets,
+        uint256 /*shares*/
+    ) internal virtual override {
         /// -----------------------------------------------------------------------
         /// Deposit assets into Stargate
         /// -----------------------------------------------------------------------
@@ -82,11 +96,21 @@ contract StargateVault is ERC4626 {
     /// ERC20 metadata generation
     /// -----------------------------------------------------------------------
 
-    function _vaultName(ERC20 asset_) internal view virtual returns (string memory vaultName) {
-        vaultName = string.concat("ERC4626-Wrapped Stargate ", asset_.symbol());
+    function _vaultName(ERC20 asset_)
+        internal
+        view
+        virtual
+        returns (string memory vaultName)
+    {
+        vaultName = string.concat('ERC4626-Wrapped Stargate ', asset_.symbol());
     }
 
-    function _vaultSymbol(ERC20 asset_) internal view virtual returns (string memory vaultSymbol) {
-        vaultSymbol = string.concat("we", asset_.symbol());
+    function _vaultSymbol(ERC20 asset_)
+        internal
+        view
+        virtual
+        returns (string memory vaultSymbol)
+    {
+        vaultSymbol = string.concat('we', asset_.symbol());
     }
 }
