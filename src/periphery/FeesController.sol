@@ -4,6 +4,17 @@ import {Owned} from 'solmate/auth/Owned.sol';
 import {ERC20} from 'solmate/tokens/ERC20.sol';
 import {TransferHelper} from '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
 
+interface IFeeController {
+    function create(ERC20 want) external;
+
+    function getFee(address vault, uint256 amountFrom)
+        public
+        view
+        returns (uint256 feeAmount, address want);
+
+    function payFee(uint256 amountFrom) public returns (uint256)
+}
+
 struct Fees {
     address want;
     uint256 feeBps;
