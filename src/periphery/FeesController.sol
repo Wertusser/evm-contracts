@@ -8,11 +8,11 @@ interface IFeeController {
     function create(ERC20 want) external;
 
     function getFee(address vault, uint256 amountFrom)
-        public
+        external
         view
         returns (uint256 feeAmount, address want);
 
-    function payFee(uint256 amountFrom) public returns (uint256)
+    function payFee(uint256 amountFrom) external returns (uint256);
 }
 
 struct Fees {
