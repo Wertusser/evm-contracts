@@ -10,7 +10,7 @@ import {Bytes32AddressLib} from 'solmate/utils/Bytes32AddressLib.sol';
 /// @dev
 abstract contract Swapper {
     // keccak(sender, from, to) => route payload
-    mapping(bytes32 => bytes) public routes;
+    mapping(bytes32 => bytes32[8]) public routes;
     /// -----------------------------------------------------------------------
     /// Library usage
     /// -----------------------------------------------------------------------
@@ -29,7 +29,7 @@ abstract contract Swapper {
     event Swap(
         address indexed sender,
         ERC20 indexed from,
-        ERC4626 indexed to,
+        ERC20 indexed to,
         uint256 amountIn,
         uint256 amountOut
     );
@@ -42,12 +42,25 @@ abstract contract Swapper {
     /// @dev
     /// @param assetFrom The base asset
     /// @param assetTo The quote asset
-    function getRouteId(address sender, ERC20 assetFrom, ERC20 assetTo)
-        external
-        view
-        returns (bytes32 id)
-    {
+    function getRouteId(
+        address sender,
+        ERC20 assetFrom,
+        ERC20 assetTo
+    ) public pure returns (bytes32 id) {
         return keccak256(abi.encodePacked(sender, assetFrom, assetTo));
+    }
+
+    /// @notice Get a swap route for asset pair for sender
+    /// @dev
+    /// @param assetFrom The base asset
+    /// @param assetTo The quote asset
+    function getRoute(ERC20 assetFrom, ERC20 assetTo)
+        public
+        view
+        returns (bytes32[8] memory payload)
+    {
+        bytes32 id = getRouteId(msg.sender, assetFrom, assetTo);
+        payload = routes[id];
     }
 
     /// @notice Set a swap route for asset pair for sender
@@ -59,20 +72,19 @@ abstract contract Swapper {
         ERC20 assetTo,
         bytes calldata payload
     ) external returns (bytes32 id) {
-        bytes8 id = getRouteId(msg.sender, assetFrom, assetTo);
-        require(_validatePayload(payload), "Payload isn't valid");
-        routes[id] = payload;
+        id = getRouteId(msg.sender, assetFrom, assetTo);
+        bytes32[8] memory formattedPayload = _validatePayload(payload);
+        routes[id] = formattedPayload;
     }
 
     function previewSwap(
         ERC20 assetFrom,
         ERC20 assetTo,
         uint256 amountIn
-    ) external view returns (uint256 amountOut) {
-        bytes8 id = getRouteId(msg.sender, assetFrom, assetTo);
-        bytes memory payload = routes[id];
+    ) external returns (uint256 amountOut) {
+        bytes32[8] memory payload = getRoute(assetFrom, assetTo);
 
-        uint256 amountOut = _previewSwap(assetFrom, assetTo, amountIn, payload);
+        amountOut = _previewSwap(amountIn, payload);
     }
 
     function swap(
@@ -80,10 +92,9 @@ abstract contract Swapper {
         ERC20 assetTo,
         uint256 amountIn
     ) external returns (uint256 amountOut) {
-        bytes8 id = getRouteId(msg.sender, assetFrom, assetTo);
-        bytes memory payload = routes[id];
+        bytes32[8] memory payload = getRoute(assetFrom, assetTo);
 
-        uint256 amountOut = _swap(assetFrom, assetTo, amountIn, payload);
+        amountOut = _swap(amountIn, payload);
 
         emit Swap(msg.sender, assetFrom, assetTo, amountIn, amountOut);
     }
@@ -93,24 +104,16 @@ abstract contract Swapper {
     /// -----------------------------------------------------------------------
     function _validatePayload(bytes calldata payload)
         internal
-        view
         virtual
-        returns (boolean isValid)
-    {
-        return true;
-    }
+        returns (bytes32[8] memory formattedPayload);
 
     function _previewSwap(
-        ERC20 assetFrom,
-        ERC20 assetTo,
         uint256 amountIn,
-        bytes memory payload
-    ) internal view virtual returns (uint256 amountOut);
+        bytes32[8] memory payload
+    ) internal virtual returns (uint256 amountOut);
 
     function _swap(
-        ERC20 assetFrom,
-        ERC20 assetTo,
         uint256 amountIn,
-        bytes memory payload
+        bytes32[8] memory payload
     ) internal virtual returns (uint256 amountOut);
 }

@@ -16,7 +16,7 @@ import {AaveV3VaultFactory} from "../../src/providers/aaveV3/AaveV3VaultFactory.
 contract AaveV3VaultFactoryTest is Test {
     address public constant rewardRecipient = address(0x01);
 
-    ERC20 public aave;
+    ERC20Mock public aave;
     ERC20Mock public aToken;
     ERC20Mock public underlying;
     PoolMock public lendingPool;
