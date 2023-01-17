@@ -8,6 +8,20 @@ import {IRewardsController} from '../../src/providers/aaveV3/external/IRewardsCo
 import {AaveV3VaultFactory} from '../../src/providers/aaveV3/AaveV3VaultFactory.sol';
 
 contract DeployScript is Script {
+    function deployForAsset(
+        string memory name,
+        address asset,
+        AaveV3VaultFactory deployed
+    ) public payable {
+        ERC20 want = ERC20(asset);
+        deployed.createERC4626(want);
+        console2.log(
+            name,
+            ' - ',
+            address(deployed.computeERC4626Address(want))
+        );
+    }
+
     function run() public payable returns (AaveV3VaultFactory deployed) {
         uint256 deployerPrivateKey = uint256(vm.envBytes32('PRIVATE_KEY'));
         IPool lendingPool = IPool(
@@ -20,6 +34,7 @@ contract DeployScript is Script {
             vm.envAddress('OPTIMISM_AAVE_V3_REWARDS_CONTROLLER')
         );
 
+        console2.log('broadcaster', vm.addr(deployerPrivateKey));
         vm.startBroadcast(deployerPrivateKey);
 
         deployed = new AaveV3VaultFactory(
