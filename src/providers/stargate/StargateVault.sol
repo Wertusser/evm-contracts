@@ -1,57 +1,74 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import {ERC20} from "solmate/tokens/ERC20.sol";
-import {ERC4626} from "solmate/mixins/ERC4626.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import "@openzeppelin/contracts/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "./external/IStargateLPStaking.sol";
+import "./external/IStargateRouter.sol";
+import "./external/IStargatePool.sol";
 
-interface IStargateRouter {
-    function addLiquidity(uint256 _from, uint256 _amountLD, address _to) external;
+// TODO:
+// - Events
+// - Swapper
+// - Tests (proxy, spec, invariant)
+// - Mocks
+// - validate updates
+// - Research: UUPSUpgradeable
+// - Fees
 
-    function instantRedeemLocal(uint16 _from, uint256 _amountLP, address _to) external returns (uint256);
-}
 
-contract StargateVault is UUPSUpgradeable, ERC4626 {
+contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
     /// -----------------------------------------------------------------------
-    /// Libraries usage
+    /// Params
     /// -----------------------------------------------------------------------
 
-    using SafeTransferLib for ERC20;
-
-    /// -----------------------------------------------------------------------
-    /// Immutable params
-    /// -----------------------------------------------------------------------
-
+    /// @notice want asset
+    ERC20Upgradeable public want;
     /// @notice The stargate bridge router contract
-    IStargateRouter public immutable stargateRouter;
-    /// @notice The stargate pool id
-    uint256 public immutable poolId;
+    IStargateRouter public stargateRouter;
+    /// @notice The stargate bridge router contract
+    IStargatePool public stargatePool;
+    /// @notice The stargate lp staking contract
+    IStargateLPStaking public stargateLPStaking;
+    /// @notice The stargate pool staking id
+    uint256 public poolStakingId;
     /// @notice The stargate lp asset
-    ERC20 public immutable lpToken;
+    ERC20 public lpToken;
+    /// @notice The stargate expected reward token (prob. STG or OP)
+    ERC20 public reward;
 
     /// -----------------------------------------------------------------------
-    /// Mutable params
-    /// -----------------------------------------------------------------------
-
-    /// -----------------------------------------------------------------------
-    /// Constructor
+    /// Initialize
     /// -----------------------------------------------------------------------
 
     constructor() {
         _disableInitializers();
     }
 
-    function initialize(ERC20 asset_, ERC20 lpToken_, IStargateRouter router_, uint256 poolId_) public initializer {
+    function initialize(
+        ERC20Upgradeable asset_,
+        IStargateRouter router_,
+        IStargatePool pool_,
+        IStargateLPStaking staking_,
+        uint256 poolStakingId_,
+        ERC20 lpToken_,
+        ERC20 reward_
+    ) public initializer {
+        __ERC4626_init(asset_);
         __Ownable_init();
         __UUPSUpgradeable_init();
 
-        ERC4626(asset_, _vaultName(asset_), _vaultSymbol(asset_));
+        want = asset_;
         stargateRouter = router_;
+        stargatePool = pool_;
+        stargateLPStaking = staking_;
+        poolStakingId = poolStakingId_;
         lpToken = lpToken_;
-        poolId = poolId_;
+        reward = reward_;
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
@@ -63,39 +80,111 @@ contract StargateVault is UUPSUpgradeable, ERC4626 {
     /// -----------------------------------------------------------------------
 
     function totalAssets() public view virtual override returns (uint256) {
-        return lpToken.balanceOf(address(this));
+        IStargateLPStaking.UserInfo memory info = stargateLPStaking.userInfo(poolStakingId, address(this));
+        return stargatePool.amountLPtoLD(info.amount);
     }
 
-    function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal virtual override {
+    function harvest() public virtual override returns (uint256) {
+      stargateLPStaking.withdraw(poolStakingId, 0);
+    }
+
+    function tend() public virtual override returns (uint256) {
+      // FIX: add swapper
+      uint256 wantAmountOut = 0;
+
+      stargateRouter.addLiquidity(stargatePool.poolId(), wantAmountOut, address(this));
+
+      uint256 lpTokens = lpToken.balanceOf(address(this));
+
+      stargateLPStaking.deposit(poolStakingId, lpTokens);
+    }
+
+    function deposit(uint256 assets, address receiver) public virtual override returns (uint256) {
+        require(assets <= maxDeposit(receiver), "ERC4626: deposit more than max");
+
+        uint256 shares = previewDeposit(assets);
+      
+        _deposit(_msgSender(), receiver, assets, shares);
+      
+        afterDeposit(assets, shares);
+
+        return shares;
+    }
+
+    function mint(uint256 shares, address receiver) public virtual override returns (uint256) {
+        require(shares <= maxMint(receiver), "ERC4626: mint more than max");
+
+        uint256 assets = previewMint(shares);
+
+        _deposit(_msgSender(), receiver, assets, shares);
+
+        afterDeposit(assets, shares);
+
+        return assets;
+    }
+
+    function withdraw(uint256 assets, address receiver, address owner) public virtual override returns (uint256) {
+        require(assets <= maxWithdraw(owner), "ERC4626: withdraw more than max");
+
+        uint256 shares = previewWithdraw(assets);
+
+        beforeWithdraw(assets, shares);
+
+        _withdraw(_msgSender(), receiver, owner, assets, shares);
+
+        return shares;
+    }
+
+    function redeem(uint256 shares, address receiver, address owner) public virtual override returns (uint256) {
+        require(shares <= maxRedeem(owner), "ERC4626: redeem more than max");
+
+        uint256 assets = previewRedeem(shares);
+        
+        beforeWithdraw(assets, shares);
+        
+        _withdraw(_msgSender(), receiver, owner, assets, shares);
+
+        return assets;
+    }
+
+    function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal virtual {
         /// -----------------------------------------------------------------------
         /// Withdraw assets from Stargate
         /// -----------------------------------------------------------------------
+        uint256 lpTokens = getStargateLP(assets);
 
-        startgateRouter.instantRedeemLocal(address(this), assets, address(this));
+        stargateLPStaking.withdraw(poolStakingId, lpTokens);
+
+        stargateRouter.instantRedeemLocal(stargatePool.poolId(), assets, address(this));
     }
 
-    function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal virtual override {
+    function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal virtual {
         /// -----------------------------------------------------------------------
         /// Deposit assets into Stargate
         /// -----------------------------------------------------------------------
+        stargateRouter.addLiquidity(stargatePool.poolId(), assets, address(this));
 
-        // approve asset to Stargate pool
-        SafeTransferLib.safeApprove(asset.token(), address(this), assets);
-
-        // mint Stargate pool LP tokens
-        startgateRouter.addLiquidity(poolId, address(this), assets);
+        uint256 lpTokens = lpToken.balanceOf(address(this));
+        
+        stargateLPStaking.deposit(poolStakingId, lpTokens);
     }
 
     function maxWithdraw(address owner) public view override returns (uint256) {
-        uint256 cash = asset.balanceOf(poolId);
-        uint256 assetsBalance = convertToAssets(balanceOf[owner]);
+        uint256 cash = want.balanceOf(address(stargatePool));
+
+        uint256 assetsBalance = convertToAssets(this.balanceOf(owner));
+
         return cash < assetsBalance ? cash : assetsBalance;
     }
 
     function maxRedeem(address owner) public view override returns (uint256) {
-        uint256 cash = asset.balanceOf(poolId);
+        // FIX: use pool cash
+        uint256 cash = want.balanceOf(address(stargatePool));
+
         uint256 cashInShares = convertToShares(cash);
-        uint256 shareBalance = balanceOf[owner];
+        
+        uint256 shareBalance = this.balanceOf(owner);
+        
         return cashInShares < shareBalance ? cashInShares : shareBalance;
     }
 
@@ -103,8 +192,16 @@ contract StargateVault is UUPSUpgradeable, ERC4626 {
     /// Internal stargate fuctions
     /// -----------------------------------------------------------------------
 
-    function getPoolRate() internal view virtual returns (uint256 rate) {
+    function getStargateLP(uint256 amount_) internal view returns (uint256 lpTokens) {
+        uint256 totalSupply = stargatePool.totalSupply();
+        uint256 totalLiquidity = stargatePool.totalLiquidity();
+        uint256 convertRate = stargatePool.convertRate();
 
+        require(totalLiquidity > 0, "Stargate: cant convert SDtoLP when totalLiq == 0");
+
+        uint256 LDToSD = amount_ / convertRate;
+
+        lpTokens = LDToSD * totalSupply / totalLiquidity;
     }
 
     /// -----------------------------------------------------------------------
