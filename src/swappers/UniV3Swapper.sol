@@ -47,6 +47,7 @@ contract UniV3Swapper is Swapper {
     {
         bytes memory path = abi.encodePacked(payload);
         (address tokenA, , ) = path.decodeFirstPool();
+        
         TransferHelper.safeTransferFrom(
             tokenA,
             msg.sender,

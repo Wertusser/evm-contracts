@@ -9,7 +9,7 @@ import {Bytes32AddressLib} from 'solmate/utils/Bytes32AddressLib.sol';
 /// @notice Abstract base contract for deploying wrappers for AMMs
 /// @dev
 abstract contract Swapper {
-    // keccak(sender, from, to) => route payload
+    // keccak(from, to) => route payload
     mapping(bytes32 => bytes32[8]) public routes;
     /// -----------------------------------------------------------------------
     /// Library usage
@@ -43,11 +43,10 @@ abstract contract Swapper {
     /// @param assetFrom The base asset
     /// @param assetTo The quote asset
     function getRouteId(
-        address sender,
         ERC20 assetFrom,
         ERC20 assetTo
     ) public pure returns (bytes32 id) {
-        return keccak256(abi.encodePacked(sender, assetFrom, assetTo));
+        return keccak256(abi.encodePacked(assetFrom, assetTo));
     }
 
     /// @notice Get a swap route for asset pair for sender
@@ -59,7 +58,7 @@ abstract contract Swapper {
         view
         returns (bytes32[8] memory payload)
     {
-        bytes32 id = getRouteId(msg.sender, assetFrom, assetTo);
+        bytes32 id = getRouteId(assetFrom, assetTo);
         payload = routes[id];
     }
 
@@ -72,7 +71,7 @@ abstract contract Swapper {
         ERC20 assetTo,
         bytes calldata payload
     ) external returns (bytes32 id) {
-        id = getRouteId(msg.sender, assetFrom, assetTo);
+        id = getRouteId(assetFrom, assetTo);
         bytes32[8] memory formattedPayload = _validatePayload(payload);
         routes[id] = formattedPayload;
     }
