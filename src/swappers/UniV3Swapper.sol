@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.13;
 
-import {ERC20} from 'solmate/tokens/ERC20.sol';
 import {Path} from '@uniswap/v3-periphery/contracts/libraries/Path.sol';
 import {ISwapRouter} from '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
 import {IQuoter} from '@uniswap/v3-periphery/contracts/interfaces/IQuoter.sol';

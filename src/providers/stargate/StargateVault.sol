@@ -10,16 +10,15 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./external/IStargateLPStaking.sol";
 import "./external/IStargateRouter.sol";
 import "./external/IStargatePool.sol";
+import {UniV3Swapper} from "../../swappers/UniV3Swapper.sol";
 
 // TODO:
 // - Events
-// - Swapper
 // - Tests (proxy, spec, invariant)
 // - Mocks
 // - validate updates
 // - Research: UUPSUpgradeable
 // - Fees
-
 
 contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
     /// -----------------------------------------------------------------------
@@ -27,7 +26,7 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
     /// -----------------------------------------------------------------------
 
     /// @notice want asset
-    ERC20Upgradeable public want;
+    ERC20 public want;
     /// @notice The stargate bridge router contract
     IStargateRouter public stargateRouter;
     /// @notice The stargate bridge router contract
@@ -40,6 +39,11 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
     ERC20 public lpToken;
     /// @notice The stargate expected reward token (prob. STG or OP)
     ERC20 public reward;
+    // @notice Swapper contract
+    UniV3Swapper public swapper;
+
+    event Harvest(address indexed executor, uint256 amountReward, uint256 amountWant);
+    event Tend(address indexed executor, uint256 amountWant, uint256 amountShares);
 
     /// -----------------------------------------------------------------------
     /// Initialize
@@ -56,19 +60,21 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
         IStargateLPStaking staking_,
         uint256 poolStakingId_,
         ERC20 lpToken_,
-        ERC20 reward_
+        ERC20 reward_,
+        UniV3Swapper swapper_
     ) public initializer {
         __ERC4626_init(asset_);
         __Ownable_init();
         __UUPSUpgradeable_init();
 
-        want = asset_;
+        want = ERC20(address(asset_));
         stargateRouter = router_;
         stargatePool = pool_;
         stargateLPStaking = staking_;
         poolStakingId = poolStakingId_;
         lpToken = lpToken_;
         reward = reward_;
+        swapper = swapper_;
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
@@ -84,28 +90,50 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
         return stargatePool.amountLPtoLD(info.amount);
     }
 
-    function harvest() public virtual override returns (uint256) {
-      stargateLPStaking.withdraw(poolStakingId, 0);
+    function harvest() public returns (uint256) {
+        stargateLPStaking.withdraw(poolStakingId, 0);
+        uint256 rewardAmount = reward.balanceOf(address(this));
+        uint256 wantAmount = swapper.swap(reward, want, rewardAmount);
+
+        emit Harvest(msg.sender, rewardAmount, wantAmount);
+
+        return wantAmount;
     }
 
-    function tend() public virtual override returns (uint256) {
-      // FIX: add swapper
-      uint256 wantAmountOut = 0;
+    function previewHarvest() public view returns (uint256) {
+        uint256 pendingReward = stargateLPStaking.pendingStargate(address(this));
 
-      stargateRouter.addLiquidity(stargatePool.poolId(), wantAmountOut, address(this));
+        return swapper.previewSwap(reward, want, pendingReward);
+    }
 
-      uint256 lpTokens = lpToken.balanceOf(address(this));
+    function tend() public returns (uint256) {
+        uint256 wantAmount = want.balanceOf(address(this));
 
-      stargateLPStaking.deposit(poolStakingId, lpTokens);
+        uint256 shares = this.convertToShares(wantAmount);
+
+        stargateRouter.addLiquidity(stargatePool.poolId(), wantAmount, address(this));
+
+        uint256 lpTokens = lpToken.balanceOf(address(this));
+
+        stargateLPStaking.deposit(poolStakingId, lpTokens);
+
+        emit Tend(msg.sender, wantAmount, shares);
+
+        return lpTokens;
+    }
+
+    function previewTend() public view returns (uint256) {
+        uint256 harvested = previewHarvest();
+        return getStargateLP(harvested);
     }
 
     function deposit(uint256 assets, address receiver) public virtual override returns (uint256) {
         require(assets <= maxDeposit(receiver), "ERC4626: deposit more than max");
 
         uint256 shares = previewDeposit(assets);
-      
+
         _deposit(_msgSender(), receiver, assets, shares);
-      
+
         afterDeposit(assets, shares);
 
         return shares;
@@ -139,9 +167,9 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
         require(shares <= maxRedeem(owner), "ERC4626: redeem more than max");
 
         uint256 assets = previewRedeem(shares);
-        
+
         beforeWithdraw(assets, shares);
-        
+
         _withdraw(_msgSender(), receiver, owner, assets, shares);
 
         return assets;
@@ -165,7 +193,7 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
         stargateRouter.addLiquidity(stargatePool.poolId(), assets, address(this));
 
         uint256 lpTokens = lpToken.balanceOf(address(this));
-        
+
         stargateLPStaking.deposit(poolStakingId, lpTokens);
     }
 
@@ -182,9 +210,9 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
         uint256 cash = want.balanceOf(address(stargatePool));
 
         uint256 cashInShares = convertToShares(cash);
-        
+
         uint256 shareBalance = this.balanceOf(owner);
-        
+
         return cashInShares < shareBalance ? cashInShares : shareBalance;
     }
 
@@ -193,6 +221,9 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
     /// -----------------------------------------------------------------------
 
     function getStargateLP(uint256 amount_) internal view returns (uint256 lpTokens) {
+        if (amount_ == 0) {
+            return 0;
+        }
         uint256 totalSupply = stargatePool.totalSupply();
         uint256 totalLiquidity = stargatePool.totalLiquidity();
         uint256 convertRate = stargatePool.convertRate();

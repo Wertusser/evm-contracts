@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.13;
 
-import {ERC20} from 'solmate/tokens/ERC20.sol';
-import {ERC4626} from 'solmate/mixins/ERC4626.sol';
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Bytes32AddressLib} from 'solmate/utils/Bytes32AddressLib.sol';
 
 /// @title Swapper
@@ -28,8 +27,8 @@ abstract contract Swapper {
     /// @param amountOut received amount
     event Swap(
         address indexed sender,
-        ERC20 indexed from,
-        ERC20 indexed to,
+        IERC20 indexed from,
+        IERC20 indexed to,
         uint256 amountIn,
         uint256 amountOut
     );
@@ -43,8 +42,8 @@ abstract contract Swapper {
     /// @param assetFrom The base asset
     /// @param assetTo The quote asset
     function getRouteId(
-        ERC20 assetFrom,
-        ERC20 assetTo
+        IERC20 assetFrom,
+        IERC20 assetTo
     ) public pure returns (bytes32 id) {
         return keccak256(abi.encodePacked(assetFrom, assetTo));
     }
@@ -53,7 +52,7 @@ abstract contract Swapper {
     /// @dev
     /// @param assetFrom The base asset
     /// @param assetTo The quote asset
-    function getRoute(ERC20 assetFrom, ERC20 assetTo)
+    function getRoute(IERC20 assetFrom, IERC20 assetTo)
         public
         view
         returns (bytes32[8] memory payload)
@@ -67,8 +66,8 @@ abstract contract Swapper {
     /// @param assetFrom The base asset
     /// @param assetTo The quote asset
     function setRoute(
-        ERC20 assetFrom,
-        ERC20 assetTo,
+        IERC20 assetFrom,
+        IERC20 assetTo,
         bytes calldata payload
     ) external returns (bytes32 id) {
         id = getRouteId(assetFrom, assetTo);
@@ -77,8 +76,8 @@ abstract contract Swapper {
     }
 
     function previewSwap(
-        ERC20 assetFrom,
-        ERC20 assetTo,
+        IERC20 assetFrom,
+        IERC20 assetTo,
         uint256 amountIn
     ) external returns (uint256 amountOut) {
         bytes32[8] memory payload = getRoute(assetFrom, assetTo);
@@ -87,8 +86,8 @@ abstract contract Swapper {
     }
 
     function swap(
-        ERC20 assetFrom,
-        ERC20 assetTo,
+        IERC20 assetFrom,
+        IERC20 assetTo,
         uint256 amountIn
     ) external returns (uint256 amountOut) {
         bytes32[8] memory payload = getRoute(assetFrom, assetTo);
