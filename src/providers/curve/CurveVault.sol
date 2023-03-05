@@ -1,24 +1,43 @@
 // // SPDX-License-Identifier: AGPL-3.0
 // pragma solidity ^0.8.13;
 
-// import {ERC20} from 'solmate/tokens/ERC20.sol';
-// import {ERC4626} from 'solmate/mixins/ERC4626.sol';
-// import {SafeTransferLib} from 'solmate/utils/SafeTransferLib.sol';
+// import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+// import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+// import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+// import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
+// import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+// import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 // import {ICurvePool} from './external/ICurvePool.sol';
 
-// contract CurveVault is ERC4626 {
-//     using SafeTransferLib for ERC20;
-
-//     ICurvePool public immutable pool;
+// contract CurveVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
+    
+//     ERC20Upgradeable public immutable want;
+//     ICurvePool public immutable curvePool;
+//     ERC20 public immutable lpToken;
 //     ERC20 public immutable lpToken;
 
-//     constructor(
-//         ERC20 asset_,
+//     constructor() {
+//         _disableInitializers();
+//     }
+
+//     function initialize(
+//         ERC20Upgradeable asset_,
 //         ICurvePool pool_,
-//         ERC20 lpToken_
-//     ) ERC4626(asset_, _vaultName(asset_), _vaultSymbol(asset_)) {
-//         pool = pool_;
+//         ERC20 lpToken_,
+//         ERC20 reward_
+//     ) public initializer {
+//         __ERC4626_init(asset_);
+//         __Ownable_init();
+//         __UUPSUpgradeable_init();
+
+//         want = asset_;
+//         stargatePool = pool_;
 //         lpToken = lpToken_;
+//         reward = reward_;
+//     }
+
+//     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
+//         // TODO: write migrateToNewImplementation
 //     }
 
 //     /// -----------------------------------------------------------------------

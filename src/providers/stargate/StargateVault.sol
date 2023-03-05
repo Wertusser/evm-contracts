@@ -101,7 +101,7 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
     }
 
     function previewHarvest() public view returns (uint256) {
-        uint256 pendingReward = stargateLPStaking.pendingStargate(address(this));
+        uint256 pendingReward = stargateLPStaking.pendingStargate(poolStakingId, address(this));
 
         return swapper.previewSwap(reward, want, pendingReward);
     }
