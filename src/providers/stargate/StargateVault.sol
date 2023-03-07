@@ -6,7 +6,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "forge-std/interfaces/IERC20.sol";
 import "./external/IStargateLPStaking.sol";
 import "./external/IStargateRouter.sol";
 import "./external/IStargatePool.sol";
@@ -26,7 +26,7 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
     /// -----------------------------------------------------------------------
 
     /// @notice want asset
-    ERC20 public want;
+    IERC20 public want;
     /// @notice The stargate bridge router contract
     IStargateRouter public stargateRouter;
     /// @notice The stargate bridge router contract
@@ -36,9 +36,9 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
     /// @notice The stargate pool staking id
     uint256 public poolStakingId;
     /// @notice The stargate lp asset
-    ERC20 public lpToken;
+    IERC20 public lpToken;
     /// @notice The stargate expected reward token (prob. STG or OP)
-    ERC20 public reward;
+    IERC20 public reward;
     // @notice Swapper contract
     UniV3Swapper public swapper;
 
@@ -59,15 +59,15 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
         IStargatePool pool_,
         IStargateLPStaking staking_,
         uint256 poolStakingId_,
-        ERC20 lpToken_,
-        ERC20 reward_,
+        IERC20 lpToken_,
+        IERC20 reward_,
         UniV3Swapper swapper_
     ) public initializer {
         __ERC4626_init(asset_);
         __Ownable_init();
         __UUPSUpgradeable_init();
 
-        want = ERC20(address(asset_));
+        want = IERC20(address(asset_));
         stargateRouter = router_;
         stargatePool = pool_;
         stargateLPStaking = staking_;
@@ -239,11 +239,11 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
     /// ERC20 metadata generation
     /// -----------------------------------------------------------------------
 
-    function _vaultName(ERC20 asset_) internal view virtual returns (string memory vaultName) {
+    function _vaultName(IERC20 asset_) internal view virtual returns (string memory vaultName) {
         vaultName = string.concat("ERC4626-Wrapped Stargate ", asset_.symbol());
     }
 
-    function _vaultSymbol(ERC20 asset_) internal view virtual returns (string memory vaultSymbol) {
+    function _vaultSymbol(IERC20 asset_) internal view virtual returns (string memory vaultSymbol) {
         vaultSymbol = string.concat("ysg", asset_.symbol());
     }
 }
