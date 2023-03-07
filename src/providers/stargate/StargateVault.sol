@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {ERC4626, ERC20, IERC20 as ZeppelinERC20} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "forge-std/interfaces/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "./external/IStargateLPStaking.sol";
 import "./external/IStargateRouter.sol";
 import "./external/IStargatePool.sol";
-import {UniV3Swapper} from "../../swappers/UniV3Swapper.sol";
+import {ISwapper} from "../../Swapper.sol";
 
 // TODO:
 // - Events
@@ -20,7 +18,7 @@ import {UniV3Swapper} from "../../swappers/UniV3Swapper.sol";
 // - Research: UUPSUpgradeable
 // - Fees
 
-contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
+contract StargateVault is ERC4626, Ownable, Pausable {
     /// -----------------------------------------------------------------------
     /// Params
     /// -----------------------------------------------------------------------
@@ -39,46 +37,58 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
     IERC20 public lpToken;
     /// @notice The stargate expected reward token (prob. STG or OP)
     IERC20 public reward;
-    // @notice Swapper contract
-    UniV3Swapper public swapper;
+    /// @notice Swapper contract
+    ISwapper public swapper;
+    /// @notice someone who can harvest/tend in that vault
+    address public keeper;
 
     event Harvest(address indexed executor, uint256 amountReward, uint256 amountWant);
     event Tend(address indexed executor, uint256 amountWant, uint256 amountShares);
+
+    modifier keeperOnly() {
+        require(msg.sender == keeper, "Only keeper can call that function");
+        _;
+    }
 
     /// -----------------------------------------------------------------------
     /// Initialize
     /// -----------------------------------------------------------------------
 
-    constructor() {
-        _disableInitializers();
-    }
-
-    function initialize(
-        ERC20Upgradeable asset_,
-        IStargateRouter router_,
+    constructor(
+        IERC20 asset_,
         IStargatePool pool_,
+        IStargateRouter router_,
         IStargateLPStaking staking_,
         uint256 poolStakingId_,
         IERC20 lpToken_,
         IERC20 reward_,
-        UniV3Swapper swapper_
-    ) public initializer {
-        __ERC4626_init(asset_);
-        __Ownable_init();
-        __UUPSUpgradeable_init();
-
-        want = IERC20(address(asset_));
-        stargateRouter = router_;
+        ISwapper swapper_
+    ) ERC20(_vaultName(asset_), _vaultSymbol(asset_)) ERC4626(ZeppelinERC20(address(asset_))) Ownable() Pausable() {
+        want = asset_;
         stargatePool = pool_;
+        stargateRouter = router_;
         stargateLPStaking = staking_;
         poolStakingId = poolStakingId_;
         lpToken = lpToken_;
         reward = reward_;
         swapper = swapper_;
+        keeper = msg.sender; // owner is keeper by default
     }
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
-        // TODO: write migrateToNewImplementation
+    function setSwapper(ISwapper nextSwapper) public onlyOwner {
+        uint256 expectedSwap = nextSwapper.previewSwap(reward, want, 10 ** reward.decimals());
+        require(expectedSwap > 0, "This swapper doesn't supports swaps");
+        swapper = nextSwapper;
+    }
+
+    function setKeeper(address nextKeeper) public onlyOwner {
+        require(nextKeeper != address(0), "Zero address");
+        keeper = nextKeeper;
+    }
+
+    function toggleVault() public onlyOwner {
+        if (paused()) _unpause();
+        else _pause();
     }
 
     /// -----------------------------------------------------------------------
@@ -90,7 +100,7 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
         return stargatePool.amountLPtoLD(info.amount);
     }
 
-    function harvest() public returns (uint256) {
+    function harvest() public keeperOnly returns (uint256) {
         stargateLPStaking.withdraw(poolStakingId, 0);
         uint256 rewardAmount = reward.balanceOf(address(this));
         uint256 wantAmount = swapper.swap(reward, want, rewardAmount);
@@ -106,7 +116,7 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
         return swapper.previewSwap(reward, want, pendingReward);
     }
 
-    function tend() public returns (uint256) {
+    function tend() public keeperOnly returns (uint256) {
         uint256 wantAmount = want.balanceOf(address(this));
 
         uint256 shares = this.convertToShares(wantAmount);
@@ -127,7 +137,7 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
         return getStargateLP(harvested);
     }
 
-    function deposit(uint256 assets, address receiver) public virtual override returns (uint256) {
+    function deposit(uint256 assets, address receiver) public virtual override whenNotPaused returns (uint256) {
         require(assets <= maxDeposit(receiver), "ERC4626: deposit more than max");
 
         uint256 shares = previewDeposit(assets);
@@ -139,7 +149,7 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
         return shares;
     }
 
-    function mint(uint256 shares, address receiver) public virtual override returns (uint256) {
+    function mint(uint256 shares, address receiver) public virtual override whenNotPaused returns (uint256) {
         require(shares <= maxMint(receiver), "ERC4626: mint more than max");
 
         uint256 assets = previewMint(shares);
@@ -183,6 +193,8 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
 
         stargateLPStaking.withdraw(poolStakingId, lpTokens);
 
+        lpToken.approve(address(stargateRouter), lpTokens);
+
         stargateRouter.instantRedeemLocal(stargatePool.poolId(), assets, address(this));
     }
 
@@ -190,11 +202,23 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
         /// -----------------------------------------------------------------------
         /// Deposit assets into Stargate
         /// -----------------------------------------------------------------------
+        want.approve(address(stargateRouter), assets);
+
         stargateRouter.addLiquidity(stargatePool.poolId(), assets, address(this));
 
         uint256 lpTokens = lpToken.balanceOf(address(this));
 
+        lpToken.approve(address(stargateLPStaking), lpTokens);
+
         stargateLPStaking.deposit(poolStakingId, lpTokens);
+    }
+
+    function maxDeposit(address) public view override returns (uint256) {
+        return paused() ? 0 : type(uint256).max;
+    }
+
+    function maxMint(address) public view override returns (uint256) {
+        return paused() ? 0 : type(uint256).max;
     }
 
     function maxWithdraw(address owner) public view override returns (uint256) {
@@ -206,7 +230,6 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
     }
 
     function maxRedeem(address owner) public view override returns (uint256) {
-        // FIX: use pool cash
         uint256 cash = want.balanceOf(address(stargatePool));
 
         uint256 cashInShares = convertToShares(cash);
@@ -240,10 +263,10 @@ contract StargateVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable,
     /// -----------------------------------------------------------------------
 
     function _vaultName(IERC20 asset_) internal view virtual returns (string memory vaultName) {
-        vaultName = string.concat("ERC4626-Wrapped Stargate ", asset_.symbol());
+        vaultName = string.concat("Yasp Stargate Vault ", asset_.symbol());
     }
 
     function _vaultSymbol(IERC20 asset_) internal view virtual returns (string memory vaultSymbol) {
-        vaultSymbol = string.concat("ysg", asset_.symbol());
+        vaultSymbol = string.concat("ystg", asset_.symbol());
     }
 }

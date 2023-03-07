@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import {Path} from "@uniswap/v3-periphery/contracts/libraries/Path.sol";
@@ -29,7 +29,7 @@ contract UniV3Swapper is Swapper {
     }
 
     function previewSwap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn)
-        external
+        public
         view
         override
         returns (uint256 amountOut)
@@ -81,7 +81,7 @@ contract UniV3Swapper is Swapper {
         return 0;
     }
 
-    function _swap(uint256 amountIn, bytes memory payload) internal override returns (uint256 amountOut) {
+    function _swap(uint256 amountIn, uint256 minAmountOut, bytes memory payload) internal override returns (uint256 amountOut) {
         (address tokenA,,) = payload.decodeFirstPool();
 
         TransferHelper.safeTransferFrom(tokenA, msg.sender, address(this), amountIn);
@@ -93,8 +93,7 @@ contract UniV3Swapper is Swapper {
             recipient: msg.sender,
             deadline: block.timestamp,
             amountIn: amountIn,
-            // TODO: add oracle
-            amountOutMinimum: 0
+            amountOutMinimum: minAmountOut
         });
 
         amountOut = swapRouter.exactInput(params);

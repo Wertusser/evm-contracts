@@ -1,13 +1,18 @@
-// SPDX-License-Identifier: AGPL-3.0
+// SPDX-License-Identifier: MIT 
 pragma solidity ^0.8.13;
 
 import "forge-std/interfaces/IERC20.sol";
 import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 
+interface ISwapper {
+  function previewSwap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn) external view returns (uint256 amountOut);
+  function swap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn) external returns (uint256 amountOut);
+}
+
 /// @title Swapper
 /// @notice Abstract base contract for deploying wrappers for AMMs
 /// @dev
-abstract contract Swapper {
+abstract contract Swapper is ISwapper {
     /// -----------------------------------------------------------------------
     /// Library usage
     /// -----------------------------------------------------------------------
@@ -25,16 +30,18 @@ abstract contract Swapper {
     /// @param amountOut received amount
     event Swap(address indexed sender, IERC20 indexed from, IERC20 indexed to, uint256 amountIn, uint256 amountOut);
 
-    function previewSwap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn) external virtual view returns (uint256 amountOut) {
+    function previewSwap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn) public virtual view returns (uint256 amountOut) {
         bytes memory payload = _buildPayload(assetFrom, assetTo);
 
         amountOut = _previewSwap(amountIn, payload);
     }
 
-    function swap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn) external virtual returns (uint256 amountOut) {
+    function swap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn) public virtual returns (uint256 amountOut) {
         bytes memory payload = _buildPayload(assetFrom, assetTo);
 
-        amountOut = _swap(amountIn, payload);
+        // 10% slippage
+        uint256 minAmountOut = previewSwap(assetFrom, assetTo, amountIn) * 90 / 100; 
+        amountOut = _swap(amountIn, minAmountOut, payload);
 
         emit Swap(msg.sender, assetFrom, assetTo, amountIn, amountOut);
     }
@@ -46,5 +53,5 @@ abstract contract Swapper {
 
     function _previewSwap(uint256 amountIn, bytes memory payload) internal virtual view returns (uint256 amountOut);
 
-    function _swap(uint256 amountIn, bytes memory payload) internal virtual returns (uint256 amountOut);
+    function _swap(uint256 amountIn, uint256 minAmountOut, bytes memory payload) internal virtual returns (uint256 amountOut);
 }

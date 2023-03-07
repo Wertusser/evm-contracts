@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
 import 'erc4626-tests/ERC4626.test.sol';
@@ -11,7 +11,7 @@ import {RewardsControllerMock} from './mocks/RewardsController.m.sol';
 import {AaveV3VaultFactory} from '../../src/providers/aaveV3/AaveV3VaultFactory.sol';
 import {IRewardsController} from '../../src/providers/aaveV3/external/IRewardsController.sol';
 
-contract ERC4626StdTest is ERC4626Test {
+contract AaveV3VaultStdTest is ERC4626Test {
     address public constant rewardRecipient = address(0x01);
 
     // copied from AaveV3Vault.t.sol

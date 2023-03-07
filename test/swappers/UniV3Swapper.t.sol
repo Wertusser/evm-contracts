@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
@@ -53,6 +54,7 @@ contract UniV3SwapperTest is Test, UniswapV3Helper {
     function test_swapSTG_ETH() public {
         uint256 amountIn = 10 ** 12;
         deal(address(STG), msg.sender, amountIn);
+        console.log("STG Balance", STG.balanceOf(msg.sender));
         STG.approve(address(swapper), amountIn);
 
         uint256 expected = swapper.previewSwap(STG, WETH, amountIn);
