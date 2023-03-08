@@ -8,15 +8,8 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "./external/IStargateLPStaking.sol";
 import "./external/IStargateRouter.sol";
 import "./external/IStargatePool.sol";
+import "../../utils/FeesController.sol";
 import {ISwapper} from "../../Swapper.sol";
-
-// TODO:
-// - Events
-// - Tests (proxy, spec, invariant)
-// - Mocks
-// - validate updates
-// - Research: UUPSUpgradeable
-// - Fees
 
 contract StargateVault is ERC4626, Ownable, Pausable {
     /// -----------------------------------------------------------------------
@@ -41,9 +34,14 @@ contract StargateVault is ERC4626, Ownable, Pausable {
     ISwapper public swapper;
     /// @notice someone who can harvest/tend in that vault
     address public keeper;
+    /// @notice fees controller
+    FeesController public feesController;
 
     event Harvest(address indexed executor, uint256 amountReward, uint256 amountWant);
     event Tend(address indexed executor, uint256 amountWant, uint256 amountShares);
+    event KeeperUpdated(address newKeeper);
+    event SwapperUpdated(address newSwapper);
+    event FeesControllerUpdated(address feesController);
 
     modifier keeperOnly() {
         require(msg.sender == keeper, "Only keeper can call that function");
@@ -62,7 +60,8 @@ contract StargateVault is ERC4626, Ownable, Pausable {
         uint256 poolStakingId_,
         IERC20 lpToken_,
         IERC20 reward_,
-        ISwapper swapper_
+        ISwapper swapper_,
+        FeesController feesController_
     ) ERC20(_vaultName(asset_), _vaultSymbol(asset_)) ERC4626(ZeppelinERC20(address(asset_))) Ownable() Pausable() {
         want = asset_;
         stargatePool = pool_;
@@ -73,17 +72,26 @@ contract StargateVault is ERC4626, Ownable, Pausable {
         reward = reward_;
         swapper = swapper_;
         keeper = msg.sender; // owner is keeper by default
+        feesController = feesController_;
     }
 
     function setSwapper(ISwapper nextSwapper) public onlyOwner {
         uint256 expectedSwap = nextSwapper.previewSwap(reward, want, 10 ** reward.decimals());
         require(expectedSwap > 0, "This swapper doesn't supports swaps");
         swapper = nextSwapper;
+        emit SwapperUpdated(swapper);
     }
 
     function setKeeper(address nextKeeper) public onlyOwner {
         require(nextKeeper != address(0), "Zero address");
         keeper = nextKeeper;
+        emit KeeperUpdated(keeper);
+    }
+
+    function setFeesController(address nextFeesController) public onlyOwner {
+        require(nextFeesController != address(0), "Zero address");
+        feesController = nextFeesController;
+        emit FeesControllerUpdated(feesController);
     }
 
     function toggleVault() public onlyOwner {
@@ -100,14 +108,12 @@ contract StargateVault is ERC4626, Ownable, Pausable {
         return stargatePool.amountLPtoLD(info.amount);
     }
 
-    function harvest() public keeperOnly returns (uint256) {
+    function harvest() public keeperOnly returns (uint256 wantAmount) {
         stargateLPStaking.withdraw(poolStakingId, 0);
         uint256 rewardAmount = reward.balanceOf(address(this));
-        uint256 wantAmount = swapper.swap(reward, want, rewardAmount);
+        wantAmount = swapper.swap(reward, want, rewardAmount);
 
         emit Harvest(msg.sender, rewardAmount, wantAmount);
-
-        return wantAmount;
     }
 
     function previewHarvest() public view returns (uint256) {
@@ -116,10 +122,10 @@ contract StargateVault is ERC4626, Ownable, Pausable {
         return swapper.previewSwap(reward, want, pendingReward);
     }
 
-    function tend() public keeperOnly returns (uint256) {
+    function tend() public keeperOnly returns (uint256 sharesAdded) {
         uint256 wantAmount = want.balanceOf(address(this));
 
-        uint256 shares = this.convertToShares(wantAmount);
+        sharesAdded = this.convertToShares(wantAmount);
 
         stargateRouter.addLiquidity(stargatePool.poolId(), wantAmount, address(this));
 
@@ -128,8 +134,6 @@ contract StargateVault is ERC4626, Ownable, Pausable {
         stargateLPStaking.deposit(poolStakingId, lpTokens);
 
         emit Tend(msg.sender, wantAmount, shares);
-
-        return lpTokens;
     }
 
     function previewTend() public view returns (uint256) {
@@ -204,9 +208,13 @@ contract StargateVault is ERC4626, Ownable, Pausable {
         /// -----------------------------------------------------------------------
         want.approve(address(stargateRouter), assets);
 
+        uint256 lpTokensBefore = lpToken.balanceOf(address(this));
+
         stargateRouter.addLiquidity(stargatePool.poolId(), assets, address(this));
 
-        uint256 lpTokens = lpToken.balanceOf(address(this));
+        uint256 lpTokensAfter = lpToken.balanceOf(address(this));
+
+        uint256 lpTokens = lpTokensAfter - lpTokensBefore;
 
         lpToken.approve(address(stargateLPStaking), lpTokens);
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0 <0.9.0;
+pragma solidity ^0.8.13;
 
 import "erc4626-tests/ERC4626.test.sol";
 import {IERC20 as IIERC20} from "forge-std/interfaces/IERC20.sol";
@@ -14,7 +14,6 @@ import {StargateLPStakingMock} from "./mocks/LPStaking.m.sol";
 
 contract StargateVaultStdTest is ERC4626Test {
 
-    // copied from StargateVault.t.sol
     ERC20Mock public lpToken;
     ERC20Mock public underlying;
     ERC20Mock public reward;
@@ -28,7 +27,6 @@ contract StargateVaultStdTest is ERC4626Test {
     StargateVault public vault;
 
     function setUp() public override {
-        // copied from StargateVault.t.sol
         lpToken = new ERC20Mock();
         underlying = new ERC20Mock();
         reward = new ERC20Mock();
@@ -49,8 +47,8 @@ contract StargateVaultStdTest is ERC4626Test {
           IIERC20(address(reward)),
           swapper
         );
+        vault.setKeeper(address(0xFF));
 
-        // for ERC4626Test setup
         _underlying_ = address(underlying);
         _vault_ = address(vault);
         _delta_ = 0;
@@ -58,6 +56,31 @@ contract StargateVaultStdTest is ERC4626Test {
         _unlimitedAmount = true;
     }
 
-    // custom setup for yield
-    function setUpYield(Init memory init) public override {}
-}
+
+    function testFail_harvestNotKeeper(address caller) public {
+      vm.prank(caller);
+      uint amountOut = vault.harvest();
+    }
+
+    function testFail_tendNotKeeper(address caller) public {
+      vm.prank(caller);
+      uint amountOut = vault.tend();
+    }
+
+
+    function test_harvest() public {
+      vm.prank(address(0xFF));
+
+      uint expected = vault.previewHarvest();
+      uint amountOut = vault.harvest();
+      assertEq(amountOut, expected);
+    }
+
+    function test_tend() public {
+      vm.prank(address(0xFF));
+
+      uint expected = vault.previewTend();
+      uint amountOut = vault.tend();
+      assertEq(amountOut, expected);
+    }
+} 

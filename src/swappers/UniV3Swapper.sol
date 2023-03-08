@@ -9,7 +9,6 @@ import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/Transfer
 import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {IUniswapV3Factory} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "forge-std/interfaces/IERC20.sol";
-import {console2} from "forge-std/console2.sol";
 import {Swapper} from "../Swapper.sol";
 
 interface IUniswapV3Router is ISwapRouter, IPeripheryImmutableState {}
