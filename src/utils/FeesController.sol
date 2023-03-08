@@ -31,10 +31,7 @@ contract FeesController is Ownable {
     event FeesCollected(address indexed vault, uint256 feeAmount, address asset);
     event TreasuryUpdated(address prevTreasury, address nextTreasury);
 
-    constructor(FeeConfig memory defaultConfig_) Ownable() {
-        _validateConfig(defaultConfig_);
-        defaultConfig = defaultConfig_;
-    }
+    constructor() Ownable() {}
 
     function setTreasury(address nextTreasury) external onlyOwner {
         address prevTreasury = treasury;

@@ -7,6 +7,7 @@ import {IERC20 as IIERC20} from "forge-std/interfaces/IERC20.sol";
 import {ERC20Mock} from "../mocks/ERC20.m.sol";
 import {StargateVault} from "../../src/providers/stargate/StargateVault.sol";
 import {ISwapper} from "../../src/Swapper.sol";
+import {FeesController} from "../../src/utils/FeesController.sol";
 import {DummySwapper} from "../../src/swappers/DummySwapper.sol";
 import {StargatePoolMock} from "./mocks/Pool.m.sol";
 import {StargateRouterMock} from "./mocks/Router.m.sol";
@@ -23,10 +24,14 @@ contract StargateVaultStdTest is ERC4626Test {
     StargateLPStakingMock public stakingMock;
 
     ISwapper public swapper;
+    FeesController public feesController;
 
     StargateVault public vault;
 
+    address public keeper;
+
     function setUp() public override {
+        keeper = address(0xFFFFFF);
         lpToken = new ERC20Mock();
         underlying = new ERC20Mock();
         reward = new ERC20Mock();
@@ -36,6 +41,7 @@ contract StargateVaultStdTest is ERC4626Test {
         stakingMock = new StargateLPStakingMock(lpToken, reward);
 
         swapper = new DummySwapper();
+        feesController = new FeesController();
 
         vault = new StargateVault(
           IIERC20(address(underlying)),
@@ -45,13 +51,14 @@ contract StargateVaultStdTest is ERC4626Test {
           0,
           IIERC20(address(lpToken)),
           IIERC20(address(reward)),
-          swapper
+          swapper,
+          feesController
         );
-        vault.setKeeper(address(0xFF));
+        vault.setKeeper(keeper);
 
         _underlying_ = address(underlying);
         _vault_ = address(vault);
-        _delta_ = 0;
+        _delta_ = 100000;
         _vaultMayBeEmpty = false;
         _unlimitedAmount = true;
     }
@@ -69,18 +76,20 @@ contract StargateVaultStdTest is ERC4626Test {
 
 
     function test_harvest() public {
-      vm.prank(address(0xFF));
-
       uint expected = vault.previewHarvest();
+
+      vm.prank(keeper);
       uint amountOut = vault.harvest();
+
       assertEq(amountOut, expected);
     }
 
     function test_tend() public {
-      vm.prank(address(0xFF));
-
       uint expected = vault.previewTend();
+
+      vm.prank(keeper);
       uint amountOut = vault.tend();
+
       assertEq(amountOut, expected);
     }
 } 

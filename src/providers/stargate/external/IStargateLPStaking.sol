@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+import "forge-std/interfaces/IERC20.sol";
+
 interface IStargateLPStaking {
     struct UserInfo {
         uint256 amount; // How many LP tokens the user has provided.
@@ -18,7 +20,16 @@ interface IStargateLPStaking {
             //   4. User's `rewardDebt` gets updated.
     }
 
+    struct PoolInfo {
+        IERC20 lpToken; // Address of LP token contract.
+        uint256 allocPoint; // How many allocation points assigned to this pool. STGs to distribute per block.
+        uint256 lastRewardBlock; // Last block number that STGs distribution occurs.
+        uint256 accStargatePerShare; // Accumulated STGs per share, times 1e12. See below.
+    }
+
     function userInfo(uint256 _pid, address _owner) external view returns (UserInfo memory);
+
+    function poolInfo(uint256 _pid) external view returns (PoolInfo memory);
 
     function deposit(uint256 _pid, uint256 _amount) external;
 

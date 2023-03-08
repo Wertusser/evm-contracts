@@ -8,6 +8,7 @@ contract StargateLPStakingMock is IStargateLPStaking {
     ERC20Mock public lpToken;
     ERC20Mock public reward;
     UserInfo userInfo_;
+    PoolInfo poolInfo_;
 
     constructor(ERC20Mock lpToken_, ERC20Mock reward_) {
       lpToken = lpToken_;
@@ -16,6 +17,10 @@ contract StargateLPStakingMock is IStargateLPStaking {
 
     function userInfo(uint256 _pid, address _owner) external view returns (UserInfo memory) {
       return userInfo_;
+    }
+
+    function poolInfo(uint256 _pid) external view returns (PoolInfo memory) {
+      return poolInfo_;
     }
 
     function deposit(uint256 _pid, uint256 _amount) external {

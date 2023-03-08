@@ -43,7 +43,7 @@ contract StargateVault is ERC4626, Ownable, Pausable {
     event SwapperUpdated(address newSwapper);
     event FeesControllerUpdated(address feesController);
 
-    modifier keeperOnly() {
+    modifier onlyKeeper() {
         require(msg.sender == keeper, "Only keeper can call that function");
         _;
     }
@@ -79,7 +79,7 @@ contract StargateVault is ERC4626, Ownable, Pausable {
         uint256 expectedSwap = nextSwapper.previewSwap(reward, want, 10 ** reward.decimals());
         require(expectedSwap > 0, "This swapper doesn't supports swaps");
         swapper = nextSwapper;
-        emit SwapperUpdated(swapper);
+        emit SwapperUpdated(address(swapper));
     }
 
     function setKeeper(address nextKeeper) public onlyOwner {
@@ -90,8 +90,8 @@ contract StargateVault is ERC4626, Ownable, Pausable {
 
     function setFeesController(address nextFeesController) public onlyOwner {
         require(nextFeesController != address(0), "Zero address");
-        feesController = nextFeesController;
-        emit FeesControllerUpdated(feesController);
+        feesController = FeesController(nextFeesController);
+        emit FeesControllerUpdated(nextFeesController);
     }
 
     function toggleVault() public onlyOwner {
@@ -108,7 +108,7 @@ contract StargateVault is ERC4626, Ownable, Pausable {
         return stargatePool.amountLPtoLD(info.amount);
     }
 
-    function harvest() public keeperOnly returns (uint256 wantAmount) {
+    function harvest() public onlyKeeper returns (uint256 wantAmount) {
         stargateLPStaking.withdraw(poolStakingId, 0);
         uint256 rewardAmount = reward.balanceOf(address(this));
         wantAmount = swapper.swap(reward, want, rewardAmount);
@@ -122,18 +122,20 @@ contract StargateVault is ERC4626, Ownable, Pausable {
         return swapper.previewSwap(reward, want, pendingReward);
     }
 
-    function tend() public keeperOnly returns (uint256 sharesAdded) {
+    function tend() public onlyKeeper returns (uint256 sharesAdded) {
         uint256 wantAmount = want.balanceOf(address(this));
+        uint256 feesAmount = feesController.onHarvest(wantAmount);
+        uint256 assets = wantAmount - feesAmount;
 
-        sharesAdded = this.convertToShares(wantAmount);
+        sharesAdded = this.convertToShares(assets);
 
-        stargateRouter.addLiquidity(stargatePool.poolId(), wantAmount, address(this));
+        stargateRouter.addLiquidity(stargatePool.poolId(), assets, address(this));
 
         uint256 lpTokens = lpToken.balanceOf(address(this));
 
         stargateLPStaking.deposit(poolStakingId, lpTokens);
 
-        emit Tend(msg.sender, wantAmount, shares);
+        emit Tend(msg.sender, assets, sharesAdded);
     }
 
     function previewTend() public view returns (uint256) {
@@ -170,9 +172,9 @@ contract StargateVault is ERC4626, Ownable, Pausable {
 
         uint256 shares = previewWithdraw(assets);
 
-        beforeWithdraw(assets, shares);
+         uint256 wantAmount = beforeWithdraw(assets, shares);
 
-        _withdraw(_msgSender(), receiver, owner, assets, shares);
+        _withdraw(_msgSender(), receiver, owner, wantAmount, shares);
 
         return shares;
     }
@@ -182,35 +184,41 @@ contract StargateVault is ERC4626, Ownable, Pausable {
 
         uint256 assets = previewRedeem(shares);
 
-        beforeWithdraw(assets, shares);
+        uint256 wantAmount = beforeWithdraw(assets, shares);
 
-        _withdraw(_msgSender(), receiver, owner, assets, shares);
+        _withdraw(_msgSender(), receiver, owner, wantAmount, shares);
 
-        return assets;
+        return wantAmount;
     }
 
-    function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal virtual {
+    function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal virtual returns (uint256) {
         /// -----------------------------------------------------------------------
         /// Withdraw assets from Stargate
         /// -----------------------------------------------------------------------
-        uint256 lpTokens = getStargateLP(assets);
+        uint256 feesAmount = feesController.onWithdraw(assets);
+        uint256 wantAmount = assets - feesAmount;
+
+        uint256 lpTokens = getStargateLP(wantAmount);
 
         stargateLPStaking.withdraw(poolStakingId, lpTokens);
 
         lpToken.approve(address(stargateRouter), lpTokens);
 
-        stargateRouter.instantRedeemLocal(stargatePool.poolId(), assets, address(this));
+        return stargateRouter.instantRedeemLocal(uint16(stargatePool.poolId()), lpTokens, address(this));
     }
 
     function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal virtual {
         /// -----------------------------------------------------------------------
         /// Deposit assets into Stargate
         /// -----------------------------------------------------------------------
-        want.approve(address(stargateRouter), assets);
+        uint256 feesAmount = feesController.onDeposit(assets);
+        uint256 wantAmount = assets - feesAmount;
+
+        want.approve(address(stargateRouter), wantAmount);
 
         uint256 lpTokensBefore = lpToken.balanceOf(address(this));
 
-        stargateRouter.addLiquidity(stargatePool.poolId(), assets, address(this));
+        stargateRouter.addLiquidity(stargatePool.poolId(), wantAmount, address(this));
 
         uint256 lpTokensAfter = lpToken.balanceOf(address(this));
 

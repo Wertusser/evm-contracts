@@ -16,6 +16,10 @@ contract StargatePoolMock is IStargatePool {
       underlying = underlying_;
     }
 
+    function token() external view returns (address) {
+      return address(underlying);
+    }
+
     function totalSupply() external view returns (uint256) {
       return lpToken.totalSupply();
     }

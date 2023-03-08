@@ -18,7 +18,7 @@ contract StargateRouterMock is IStargateRouter {
       pool.addLiquidity(_amountLD, _to);
     }
 
-    function instantRedeemLocal(uint256 _from, uint256 _amountLP, address _to) external returns (uint256) {
+    function instantRedeemLocal(uint16 _from, uint256 _amountLP, address _to) external returns (uint256) {
       ERC20Mock(pool.lpToken()).approve(address(pool), _amountLP);
 
       pool.instantRedeemLocal(_amountLP, _to);
