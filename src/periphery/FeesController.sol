@@ -1,103 +1,105 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import {Owned} from 'solmate/auth/Owned.sol';
-import {ERC20} from 'solmate/tokens/ERC20.sol';
-import {TransferHelper} from '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
+import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "forge-std/interfaces/IERC20.sol";
 
-interface IFeeController {
-    function create(ERC20 want) external;
-
-    function getFee(address vault, uint256 amountFrom)
-        external
-        view
-        returns (uint256 feeAmount, address want);
-
-    function payFee(uint256 amountFrom) external returns (uint256);
+interface IERC4626 {
+    function asset() external view returns (address);
 }
 
-struct Fees {
-    address want;
-    uint256 feeBps;
-    bool useGlobal;
-}
+contract FeesController is Ownable {
+    uint24 constant MAX_BPS = 10000;
+    uint24 constant MAX_FEE_BPS = 2500;
 
-contract FeeController is Owned {
-    uint256 constant MAX_BPS = 10_000;
-
-    uint256 public globalFeeBps = 2_000;
-    address public receiver;
-
-    // total fees paid by vault (in want decimals)
-    mapping(address => uint256) public feesPaid;
-
-    // custom fee settings
-    mapping(address => Fees) public settings;
-
-    constructor(address owner, address receiver_) Owned(owner) {
-        receiver = receiver_;
+    struct FeeConfig {
+        bool enabled;
+        uint24 depositFeeBps;
+        uint24 withdrawFeeBps;
+        uint24 harvestFeeBps;
     }
 
-    function create(ERC20 want) external {
-        require(address(want) != address(0), 'want asset have zero address');
-        require(
-            settings[msg.sender].want == address(0),
-            'Fee settings already exists for sender'
-        );
+    FeeConfig public defaultConfig;
+    address public treasury;
 
-        settings[msg.sender] = Fees(address(want), globalFeeBps, true);
+    mapping(address => FeeConfig) public configs;
+    mapping(address => uint256) public feesCollected;
+
+    event DefaultConfigUpdated(FeeConfig newConfig);
+    event ConfigUpdated(address indexed vault, FeeConfig newConfig);
+    event FeesCollected(address indexed vault, uint256 feeAmount, address asset);
+    event TreasuryUpdated(address prevTreasury, address nextTreasury);
+
+    constructor() Ownable() {}
+
+    function setTreasury(address nextTreasury) external onlyOwner {
+        address prevTreasury = treasury;
+        treasury = nextTreasury;
+
+        emit TreasuryUpdated(prevTreasury, nextTreasury);
     }
 
-    function getFee(address vault, uint256 amountFrom)
-        public
-        view
-        returns (uint256 feeAmount, address want)
-    {
-        Fees memory params = settings[vault];
-        require(params.want != address(0), 'Fee settings doesnt exists');
+    function setDefaultConfig(FeeConfig memory config) external onlyOwner {
+        _validateConfig(config);
+        defaultConfig = config;
 
-        uint256 feeBps = params.useGlobal ? globalFeeBps : params.feeBps;
-
-        want = params.want;
-        feeAmount = (amountFrom * feeBps) / MAX_BPS;
+        emit DefaultConfigUpdated(config);
     }
 
-    function payFee(uint256 amountFrom) public returns (uint256) {
-        (uint256 feesAmount, address want) = getFee(msg.sender, amountFrom);
-        if (feesAmount > 0) {
-            TransferHelper.safeTransferFrom(
-                want,
-                msg.sender,
-                receiver,
-                feesAmount
-            );
+    function setCustomConfig(address vault, FeeConfig memory config) external onlyOwner {
+        _validateConfig(config);
+        configs[vault] = config;
 
-            feesPaid[msg.sender] += feesAmount;
+        emit ConfigUpdated(vault, config);
+    }
+
+    function onDeposit(uint256 amount) external returns (uint256 feesAmount) {
+        FeeConfig memory config = configs[msg.sender];
+
+        if (!config.enabled) {
+            config = defaultConfig;
         }
-        return feesAmount;
+
+        feesAmount = _collectFees(msg.sender, amount, config.depositFeeBps);
     }
 
-    function setGlobalFeeBps(uint256 feeBps) external onlyOwner {
-        require(feeBps < MAX_BPS, 'Invalid fee bps');
+    function onWithdraw(uint256 amount) external returns (uint256 feesAmount) {
+        FeeConfig memory config = configs[msg.sender];
 
-        globalFeeBps = feeBps;
+        if (!config.enabled) {
+            config = defaultConfig;
+        }
+
+        feesAmount = _collectFees(msg.sender, amount, config.withdrawFeeBps);
     }
 
-    function setReceiver(address receiver_) external onlyOwner {
-        require(receiver_ != address(0));
+    function onHarvest(uint256 amount) external returns (uint256 feesAmount) {
+        FeeConfig memory config = configs[msg.sender];
 
-        receiver = receiver_;
+        if (!config.enabled) {
+            config = defaultConfig;
+        }
+
+        feesAmount = _collectFees(msg.sender, amount, config.harvestFeeBps);
     }
 
-    function setFee(
-        address vault,
-        uint256 feeBps,
-        bool useGlobal
-    ) external onlyOwner {
-        require(feeBps < MAX_BPS, 'Invalid fee bps');
-        Fees storage params = settings[vault];
-        require(params.want != address(0), 'Fee settings doesnt exists');
+    function _collectFees(address vault, uint256 amount, uint24 bps) internal returns (uint256 feesAmount) {
+        address asset = IERC4626(vault).asset();
+        feesAmount = amount * bps / MAX_BPS;
 
-        params.feeBps = feeBps;
-        params.useGlobal = useGlobal;
+        if (feesAmount > 0) {
+            TransferHelper.safeTransferFrom(asset, vault, treasury, feesAmount);
+            feesCollected[vault] += feesAmount;
+
+            emit FeesCollected(vault, feesAmount, asset);
+        }
+    }
+
+    function _validateConfig(FeeConfig memory config) internal pure returns (bool) {
+        require(config.depositFeeBps <= MAX_FEE_BPS, "Invalid deposit fee");
+        require(config.withdrawFeeBps <= MAX_FEE_BPS, "Invalid withdraw fee");
+        require(config.harvestFeeBps <= MAX_FEE_BPS, "Invalid harvest fee");
+        return true;
     }
 }

@@ -34,6 +34,8 @@ contract StargateVaultFactory is ERC4626Factory {
     /// @notice fees controller
     FeesController public immutable feesController;
 
+    address public admin;
+
     /// -----------------------------------------------------------------------
     /// Constructor
     /// -----------------------------------------------------------------------
@@ -43,30 +45,29 @@ contract StargateVaultFactory is ERC4626Factory {
         IStargateRouter router_,
         IStargateLPStaking staking_,
         FeesController feesController_,
-        ISwapper swapper_
+        ISwapper swapper_,
+        address admin_
     ) {
         stargateFactory = factory_;
         stargateRouter = router_;
         stargateLPStaking = staking_;
         swapper = swapper_;
         feesController = feesController_;
+        admin = admin_;
     }
 
     /// -----------------------------------------------------------------------
     /// External functions
     /// -----------------------------------------------------------------------
     function createERC4626(ERC20 asset) external override returns (ERC4626 vault) {
-      revert StargateVaultFactory__Deprecated();
+        revert StargateVaultFactory__Deprecated();
     }
 
-    function computeERC4626Address(ERC20 asset) external override view returns (ERC4626 vault) {
-      revert StargateVaultFactory__Deprecated();
+    function computeERC4626Address(ERC20 asset) external view override returns (ERC4626 vault) {
+        revert StargateVaultFactory__Deprecated();
     }
 
-    function createERC4626_(uint256 poolId, uint256 stakingId, IERC20 reward)
-        external
-        returns (ERC4626 vault)
-    {
+    function createERC4626_(uint256 poolId, uint256 stakingId, IERC20 reward) external returns (ERC4626 vault) {
         IStargatePool pool = stargateFactory.getPool(poolId);
         IERC20 asset = IERC20(pool.token());
         IERC20 lpToken = IERC20(address(pool));
@@ -88,7 +89,8 @@ contract StargateVaultFactory is ERC4626Factory {
           lpToken,
           reward,
           swapper,
-          feesController
+          feesController,
+          admin
         );
 
         vault = ERC4626(address(deployed));
@@ -129,7 +131,8 @@ contract StargateVaultFactory is ERC4626Factory {
                             lpToken,
                             reward,
                             swapper,
-                            feesController
+                            feesController,
+                            admin
                         )
                     )
                 )

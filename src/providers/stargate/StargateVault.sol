@@ -61,7 +61,8 @@ contract StargateVault is ERC4626, Ownable, Pausable {
         IERC20 lpToken_,
         IERC20 reward_,
         ISwapper swapper_,
-        FeesController feesController_
+        FeesController feesController_,
+        address admin
     ) ERC20(_vaultName(asset_), _vaultSymbol(asset_)) ERC4626(ZeppelinERC20(address(asset_))) Ownable() Pausable() {
         want = asset_;
         stargatePool = pool_;
@@ -71,8 +72,10 @@ contract StargateVault is ERC4626, Ownable, Pausable {
         lpToken = lpToken_;
         reward = reward_;
         swapper = swapper_;
-        keeper = msg.sender; // owner is keeper by default
+        keeper = admin; // owner is keeper by default
         feesController = feesController_;
+
+        _transferOwnership(admin);
     }
 
     function setSwapper(ISwapper nextSwapper) public onlyOwner {

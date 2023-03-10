@@ -31,6 +31,8 @@ contract StargateVaultStdTest is ERC4626Test {
     address public keeper;
 
     function setUp() public override {
+        address owner = msg.sender;
+
         keeper = address(0xFFFFFF);
         lpToken = new ERC20Mock();
         underlying = new ERC20Mock();
@@ -52,15 +54,18 @@ contract StargateVaultStdTest is ERC4626Test {
           IIERC20(address(lpToken)),
           IIERC20(address(reward)),
           swapper,
-          feesController
+          feesController,
+          owner
         );
+        
+        vm.prank(owner);
         vault.setKeeper(keeper);
 
         _underlying_ = address(underlying);
         _vault_ = address(vault);
-        _delta_ = 100000;
+        _delta_ = 10 ** underlying.decimals();
         _vaultMayBeEmpty = false;
-        _unlimitedAmount = true;
+        _unlimitedAmount = false;
     }
 
 
