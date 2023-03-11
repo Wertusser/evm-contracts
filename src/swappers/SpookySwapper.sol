@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import "forge-std/interfaces/IERC20.sol";
-import {Swapper} from "../Swapper.sol";
+import {Swapper} from "../periphery/Swapper.sol";
 
 interface IUniswapV2Router01 {
     function factory() external pure returns (address);

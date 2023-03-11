@@ -9,7 +9,7 @@ import "../../src/providers/stargate/external/IStargateRouter.sol";
 import "../../src/providers/stargate/external/IStargatePool.sol";
 import "../../src/providers/stargate/external/IStargateFactory.sol";
 import "../../src/periphery/FeesController.sol";
-import {ISwapper} from "../../src/Swapper.sol";
+import {ISwapper} from "../../src/periphery/Swapper.sol";
 import {StargateVaultFactory} from "../../src/providers/stargate/StargateVaultFactory.sol";
 import {StargateVault} from "../../src/providers/stargate/StargateVault.sol";
 

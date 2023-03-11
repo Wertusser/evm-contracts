@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "forge-std/interfaces/IERC20.sol";
-import {Swapper} from "../Swapper.sol";
+import {Swapper} from "../periphery/Swapper.sol";
 
 contract DummySwapper is Swapper, Ownable {
     address public receiver;

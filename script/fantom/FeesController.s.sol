@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 import 'forge-std/Script.sol';
 
 import {ERC20} from 'solmate/tokens/ERC20.sol';
-import {FeesController} from '../../src/utils/FeesController.sol';
+import {FeesController} from '../../src/periphery/FeesController.sol';
 
 contract DeployScript is Script {
     function run() public payable returns (FeesController deployed) {

@@ -9,6 +9,23 @@ interface IERC4626 {
     function asset() external view returns (address);
 }
 
+contract WithFees is Ownable {
+    /// @notice fees controller
+    FeesController public feesController;
+
+    event FeesControllerUpdated(address feesController);
+
+    constructor(FeesController feesController_) {
+        feesController = feesController_;
+    }
+
+    function setFeesController(address nextFeesController) public onlyOwner {
+        require(nextFeesController != address(0), "Zero address");
+        feesController = FeesController(nextFeesController);
+        emit FeesControllerUpdated(nextFeesController);
+    }
+}
+
 contract FeesController is Ownable {
     uint24 constant MAX_BPS = 10000;
     uint24 constant MAX_FEE_BPS = 2500;

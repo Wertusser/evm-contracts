@@ -9,8 +9,8 @@ import "./external/IStargateLPStaking.sol";
 import "./external/IStargateRouter.sol";
 import "./external/IStargatePool.sol";
 import "./external/IStargateFactory.sol";
-import "../../utils/FeesController.sol";
-import {ISwapper} from "../../Swapper.sol";
+import "../../periphery/FeesController.sol";
+import "../../periphery/Swapper.sol";
 
 /// @title StargateVaultFactory
 /// @notice Factory for creating StargateVault contracts
