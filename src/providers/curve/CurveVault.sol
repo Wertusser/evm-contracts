@@ -1,139 +1,107 @@
-// // SPDX-License-Identifier: MIT
-// pragma solidity ^0.8.13;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
 
-// import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-// import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-// import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-// import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
-// import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-// import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-// import {ICurvePool} from './external/ICurvePool.sol';
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "../../periphery/ERC4626Compoundable.sol";
+import "../../periphery/FeesController.sol";
+import "../../periphery/ERC4626Compoundable.sol";
+import {ICurvePool} from "./external/ICurvePool.sol";
+import "forge-std/interfaces/IERC20.sol";
 
-// contract CurveVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
-    
-//     ERC20Upgradeable public immutable want;
-//     ICurvePool public immutable curvePool;
-//     ERC20 public immutable lpToken;
-//     ERC20 public immutable lpToken;
+contract CurveVault is ERC4626Compoundable, WithFees, Pausable {
+    ICurvePool public immutable curvePool;
+    IERC20 public immutable lpToken;
 
-//     constructor() {
-//         _disableInitializers();
-//     }
+    constructor(
+        IERC20 asset_,
+        ICurvePool pool_,
+        IERC20 lpToken_,
+        IERC20 reward_,
+        ISwapper swapper_,
+        FeesController feesController_,
+        address admin
+    ) ERC4626Compoundable(asset_, reward_, swapper_, admin) WithFees(feesController_) Pausable() {
+        curvePool = pool_;
+        lpToken = lpToken_;
+    }
 
-//     function initialize(
-//         ERC20Upgradeable asset_,
-//         ICurvePool pool_,
-//         ERC20 lpToken_,
-//         ERC20 reward_
-//     ) public initializer {
-//         __ERC4626_init(asset_);
-//         __Ownable_init();
-//         __UUPSUpgradeable_init();
+    /// -----------------------------------------------------------------------
+    /// ERC4626 overrides
+    /// -----------------------------------------------------------------------
+    function totalAssets() public view override returns (uint256) {
+        return lpToken.balanceOf(address(this));
+    }
 
-//         want = asset_;
-//         stargatePool = pool_;
-//         lpToken = lpToken_;
-//         reward = reward_;
-//     }
+    function _harvest() internal override returns (uint256 rewardAmount, uint256 wantAmount) {
+        rewardAmount = 0;
 
-//     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
-//         // TODO: write migrateToNewImplementation
-//     }
+        wantAmount = 0;
+    }
 
-//     /// -----------------------------------------------------------------------
-//     /// ERC4626 overrides
-//     /// -----------------------------------------------------------------------
-//     function totalAssets() public view virtual override returns (uint256) {
-//         return lpToken.balanceOf(address(this));
-//     }
+    function previewHarvest() public view override returns (uint256) {
+        return 0;
+    }
 
-//     function beforeWithdraw(
-//         uint256 assets,
-//         uint256 /*shares*/
-//     ) internal virtual override {
-//         /// -----------------------------------------------------------------------
-//         /// Remove liquidity from Curve pool imbalance
-//         /// -----------------------------------------------------------------------
-//         pool.remove_liquidity_one_coin(assets, 0, assets);
-//     }
+    function _tend() internal override returns (uint256 wantAmount, uint256 sharesAdded) {
+        wantAmount = 0;
 
-//     function afterDeposit(
-//         uint256 assets,
-//         uint256 /*shares*/
-//     ) internal virtual override {
-//         /// -----------------------------------------------------------------------
-//         /// Add liquidity into Curve
-//         /// -----------------------------------------------------------------------
+        sharesAdded = 0;
+    }
 
-//         // approve to lendingPool
-//         asset.safeApprove(address(pool), assets);
+    function previewTend() public view override returns (uint256) {
+        return 0;
+    }
 
-//         pool.add_liquidity([uint256(0), uint256(0), uint256(0), uint256(0)], assets);
-//     }
+    function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal {
+        /// -----------------------------------------------------------------------
+        /// Remove liquidity from Curve pool imbalance
+        /// -----------------------------------------------------------------------
+        curvePool.remove_liquidity_one_coin(assets, 0, assets);
+    }
 
-//     function maxDeposit(address)
-//         public
-//         view
-//         virtual
-//         override
-//         returns (uint256)
-//     {
-//         return !pool.is_killed() ? type(uint256).max : 0;
-//     }
+    function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal {
+        /// -----------------------------------------------------------------------
+        /// Add liquidity into Curve
+        /// -----------------------------------------------------------------------
 
-//     function maxMint(address) public view virtual override returns (uint256) {
-//         return !pool.is_killed() ? type(uint256).max : 0;
-//     }
+        // approve to lendingPool
+        want.approve(address(curvePool), assets);
 
-//     function maxWithdraw(address owner)
-//         public
-//         view
-//         virtual
-//         override
-//         returns (uint256)
-//     {
-//         if (pool.is_killed()) return 0;
-//         uint256 totalLiquidity = asset.balanceOf(address(pool));
-//         uint256 assetsBalance = convertToAssets(balanceOf[owner]);
-//         return totalLiquidity < assetsBalance ? totalLiquidity : assetsBalance;
-//     }
+        curvePool.add_liquidity([uint256(0), uint256(0), uint256(0), uint256(0)], assets);
+    }
 
-//     function maxRedeem(address owner)
-//         public
-//         view
-//         virtual
-//         override
-//         returns (uint256)
-//     {
-//         if (pool.is_killed()) return 0;
-//         uint256 totalLiquidity = asset.balanceOf(address(pool));
-//         uint256 totalLiquidityInShares = convertToShares(totalLiquidity);
-//         uint256 shareBalance = balanceOf[owner];
-//         return
-//             totalLiquidityInShares < shareBalance
-//                 ? totalLiquidityInShares
-//                 : shareBalance;
-//     }
+    function maxDeposit(address) public view virtual override returns (uint256) {
+        return !curvePool.is_killed() ? type(uint256).max : 0;
+    }
 
-//     /// -----------------------------------------------------------------------
-//     /// ERC20 metadata generation
-//     /// -----------------------------------------------------------------------
+    function maxMint(address) public view virtual override returns (uint256) {
+        return !curvePool.is_killed() ? type(uint256).max : 0;
+    }
 
-//     function _vaultName(ERC20 asset_)
-//         internal
-//         view
-//         virtual
-//         returns (string memory vaultName)
-//     {
-//         vaultName = string.concat('Yasp CurveFi Vault', asset_.symbol());
-//     }
+    function maxWithdraw(address owner) public view virtual override returns (uint256) {
+        if (curvePool.is_killed()) return 0;
+        uint256 totalLiquidity = want.balanceOf(address(curvePool));
+        uint256 assetsBalance = convertToAssets(this.balanceOf(owner));
+        return totalLiquidity < assetsBalance ? totalLiquidity : assetsBalance;
+    }
 
-//     function _vaultSymbol(ERC20 asset_)
-//         internal
-//         view
-//         virtual
-//         returns (string memory vaultSymbol)
-//     {
-//         vaultSymbol = string.concat('ycvx`', asset_.symbol());
-//     }
-// }
+    function maxRedeem(address owner) public view virtual override returns (uint256) {
+        if (curvePool.is_killed()) return 0;
+        uint256 totalLiquidity = want.balanceOf(address(curvePool));
+        uint256 totalLiquidityInShares = convertToShares(totalLiquidity);
+        uint256 shareBalance = this.balanceOf(owner);
+        return totalLiquidityInShares < shareBalance ? totalLiquidityInShares : shareBalance;
+    }
+
+    /// -----------------------------------------------------------------------
+    /// ERC20 metadata generation
+    /// -----------------------------------------------------------------------
+
+    function _vaultName(IERC20 asset_) internal view override returns (string memory vaultName) {
+        vaultName = string.concat("Yasp CurveFi Vault", asset_.symbol());
+    }
+
+    function _vaultSymbol(IERC20 asset_) internal view override returns (string memory vaultSymbol) {
+        vaultSymbol = string.concat("ycvx`", asset_.symbol());
+    }
+}
