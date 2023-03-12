@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
 import {
     ERC4626 as ZeppelinERC4626,
     ERC20 as ZeppelinERC20,

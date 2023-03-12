@@ -25,7 +25,7 @@ contract StargatePoolMock is IStargatePool {
     }
 
     function totalLiquidity() external view returns (uint256) {
-      return underlying.totalSupply();
+      return underlying.balanceOf(address(this));
     }
 
     function convertRate() external view returns (uint256) {

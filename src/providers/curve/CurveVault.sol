@@ -6,36 +6,58 @@ import "../../periphery/ERC4626Compoundable.sol";
 import "../../periphery/FeesController.sol";
 import "../../periphery/ERC4626Compoundable.sol";
 import {ICurvePool} from "./external/ICurvePool.sol";
+import {ICurveGauge} from "./external/ICurveGauge.sol";
 import "forge-std/interfaces/IERC20.sol";
 
-contract CurveVault is ERC4626Compoundable, WithFees, Pausable {
+contract CurveVault is ERC4626Compoundable, WithFees {
+    ///@notice curve pool contract
     ICurvePool public immutable curvePool;
+    ///@notice curve gauge
+    ICurveGauge public immutable curveGauge;
+    ///@notice curve pool lp token
     IERC20 public immutable lpToken;
+    ///@notice coin id in curve pool
+    uint8 public immutable coinId;
+    ///@notice amount of supported coins in curve pool
+    uint8 public immutable poolSize;
 
     constructor(
         IERC20 asset_,
         ICurvePool pool_,
+        uint8 coinId_,
+        uint8 poolSize_,
+        ICurveGauge gauge_,
         IERC20 lpToken_,
         IERC20 reward_,
         ISwapper swapper_,
         FeesController feesController_,
-        address admin
-    ) ERC4626Compoundable(asset_, reward_, swapper_, admin) WithFees(feesController_) Pausable() {
+        address keeper,
+        address management,
+        address emergency
+    ) ERC4626Compoundable(asset_, reward_, swapper_, keeper, management, emergency) WithFees(feesController_) {
         curvePool = pool_;
+        curveGauge = gauge_;
         lpToken = lpToken_;
+        coinId = coinId_;
+        poolSize = poolSize_;
     }
 
     /// -----------------------------------------------------------------------
     /// ERC4626 overrides
     /// -----------------------------------------------------------------------
     function totalAssets() public view override returns (uint256) {
-        return lpToken.balanceOf(address(this));
+        uint256 lpTokens = curveGauge.balanceOf(address(this));
+        return curvePool.calc_withdraw_one_coin(lpTokens, coinId);
     }
 
     function _harvest() internal override returns (uint256 rewardAmount, uint256 wantAmount) {
-        rewardAmount = 0;
+        rewardAmount = curvePool.claimable_tokens(address(this));
 
-        wantAmount = 0;
+        if (rewardAmount > 0) {
+            wantAmount = swapper.swap(reward, want, rewardAmount);
+        } else {
+            wantAmount = 0;
+        }
     }
 
     function previewHarvest() public view override returns (uint256) {
@@ -43,9 +65,8 @@ contract CurveVault is ERC4626Compoundable, WithFees, Pausable {
     }
 
     function _tend() internal override returns (uint256 wantAmount, uint256 sharesAdded) {
-        wantAmount = 0;
-
-        sharesAdded = 0;
+        wantAmount = want.balanceOf(address(this));
+        sharesAdded = _zapLiquidity(wantAmount);
     }
 
     function previewTend() public view override returns (uint256) {
@@ -53,21 +74,11 @@ contract CurveVault is ERC4626Compoundable, WithFees, Pausable {
     }
 
     function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal {
-        /// -----------------------------------------------------------------------
-        /// Remove liquidity from Curve pool imbalance
-        /// -----------------------------------------------------------------------
-        curvePool.remove_liquidity_one_coin(assets, 0, assets);
+        _unzapLiquidity(assets);
     }
 
     function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal {
-        /// -----------------------------------------------------------------------
-        /// Add liquidity into Curve
-        /// -----------------------------------------------------------------------
-
-        // approve to lendingPool
-        want.approve(address(curvePool), assets);
-
-        curvePool.add_liquidity([uint256(0), uint256(0), uint256(0), uint256(0)], assets);
+        _zapLiquidity(assets);
     }
 
     function maxDeposit(address) public view virtual override returns (uint256) {
@@ -91,6 +102,35 @@ contract CurveVault is ERC4626Compoundable, WithFees, Pausable {
         uint256 totalLiquidityInShares = convertToShares(totalLiquidity);
         uint256 shareBalance = this.balanceOf(owner);
         return totalLiquidityInShares < shareBalance ? totalLiquidityInShares : shareBalance;
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Curve integration
+    /// -----------------------------------------------------------------------
+
+    function _zapLiquidity(uint256 assets) internal returns (uint256) {
+        /// -----------------------------------------------------------------------
+        /// Add liquidity into Curve
+        /// -----------------------------------------------------------------------
+        want.approve(address(curvePool), assets);
+        
+        uint256[] memory amounts = new uint256[](poolSize);
+        amounts[coinId] = assets;
+
+        uint256 lpTokens = curvePool.add_liquidity(amounts, 0);
+
+        curveGauge.deposit(lpTokens);
+    }
+
+    function _unzapLiquidity(uint256 assets) internal returns (uint256) {
+         /// -----------------------------------------------------------------------
+        /// Remove liquidity from Curve pool imbalance
+        /// -----------------------------------------------------------------------
+        uint256 lpTokens = assets;
+
+        curvePool.withdraw(lpTokens);
+
+        curvePool.remove_liquidity_one_coin(lpTokens, coinId, 0);
     }
 
     /// -----------------------------------------------------------------------

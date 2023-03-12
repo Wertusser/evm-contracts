@@ -39,6 +39,6 @@ contract StargateLPStakingMock is IStargateLPStaking {
     }
 
     function pendingStargate(uint256 _pid, address _user) public view returns (uint256) {
-      return 0;
+      return block.timestamp % 10 ** 18;
     }
 }

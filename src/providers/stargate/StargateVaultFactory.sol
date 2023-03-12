@@ -90,6 +90,8 @@ contract StargateVaultFactory is ERC4626Factory {
           reward,
           swapper,
           feesController,
+          admin,
+          admin,
           admin
         );
 
@@ -132,6 +134,8 @@ contract StargateVaultFactory is ERC4626Factory {
                             reward,
                             swapper,
                             feesController,
+                            admin,
+                            admin,
                             admin
                         )
                     )

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts/security/Pausable.sol";
 import "./external/IStargateLPStaking.sol";
 import "./external/IStargateRouter.sol";
 import "./external/IStargatePool.sol";
@@ -9,7 +8,7 @@ import "../../periphery/FeesController.sol";
 import "../../periphery/Swapper.sol";
 import "../../periphery/ERC4626Compoundable.sol";
 
-contract StargateVault is ERC4626Compoundable, WithFees, Pausable {
+contract StargateVault is ERC4626Compoundable, WithFees {
     /// -----------------------------------------------------------------------
     /// Params
     /// -----------------------------------------------------------------------
@@ -39,21 +38,18 @@ contract StargateVault is ERC4626Compoundable, WithFees, Pausable {
         IERC20 reward_,
         ISwapper swapper_,
         FeesController feesController_,
-        address admin
-    ) ERC4626Compoundable(asset_, reward_, swapper_, admin) WithFees(feesController_) Pausable() {
+        address keeper_,
+        address management_,
+        address emergency_
+    )
+        ERC4626Compoundable(asset_, reward_, swapper_, keeper_, management_, emergency_)
+        WithFees(feesController_)
+    {
         stargatePool = pool_;
         stargateRouter = router_;
         stargateLPStaking = staking_;
         poolStakingId = poolStakingId_;
         lpToken = lpToken_;
-        
-        _transferOwnership(admin);
-    }
-
-
-    function toggleVault() public onlyOwner {
-        if (paused()) _unpause();
-        else _pause();
     }
 
     /// -----------------------------------------------------------------------
@@ -67,13 +63,17 @@ contract StargateVault is ERC4626Compoundable, WithFees, Pausable {
 
     function _harvest() internal override returns (uint256 rewardAmount, uint256 wantAmount) {
         stargateLPStaking.withdraw(poolStakingId, 0);
-        
+
         rewardAmount = reward.balanceOf(address(this));
-        
-        wantAmount = swapper.swap(reward, want, rewardAmount);
+
+        if (rewardAmount > 0) {
+            wantAmount = swapper.swap(reward, want, rewardAmount);
+        } else {
+            wantAmount = 0;
+        }
     }
 
-    function previewHarvest() public override view returns (uint256) {
+    function previewHarvest() public view override returns (uint256) {
         uint256 pendingReward = stargateLPStaking.pendingStargate(poolStakingId, address(this));
 
         return swapper.previewSwap(reward, want, pendingReward);
@@ -93,7 +93,7 @@ contract StargateVault is ERC4626Compoundable, WithFees, Pausable {
         stargateLPStaking.deposit(poolStakingId, lpTokens);
     }
 
-    function previewTend() public override view returns (uint256) {
+    function previewTend() public view override returns (uint256) {
         uint256 harvested = previewHarvest();
         return getStargateLP(harvested);
     }

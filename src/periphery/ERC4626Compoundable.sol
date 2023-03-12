@@ -1,27 +1,39 @@
-import "@openzeppelin/contracts/access/Ownable.sol";
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
 import "forge-std/interfaces/IERC20.sol";
-import "./ERC4626.sol";
+import "./ERC4626Controllable.sol";
 import "./Swapper.sol";
 
-abstract contract ERC4626Compoundable is ERC4626, Ownable {
+abstract contract ERC4626Compoundable is ERC4626Controllable {
     /// @notice The expected reward token from integrated provider
     IERC20 public reward;
     /// @notice Swapper contract
     ISwapper public swapper;
-    /// @notice someone who can harvest/tend in that vault
-    address public keeper;
+    
+    ///@notice total earned amount. Value changes after every tend() call
+    uint256 public totalEarned;
+    ///@notice block timestamp of last tend() call
+    uint256 public compoundAt;
+    ///@notice block timestamp of contract creation
+    uint256 public createdAt;
 
-    modifier onlyKeeper() {
-        require(msg.sender == keeper, "Only keeper can call that function");
-        _;
-    }
+    bytes32 public constant KEEPER_ROLE = keccak256("KEEPER_ROLE");
 
-    constructor(IERC20 asset_, IERC20 reward_, ISwapper swapper_, address keeper_)
-    ERC4626(asset_)
-    Ownable() {
-      reward = reward_;
-      keeper = keeper_;
-      swapper = swapper_;
+    constructor(
+        IERC20 asset_,
+        IERC20 reward_,
+        ISwapper swapper_,
+        address keeper_,
+        address management_,
+        address emergency_
+    ) ERC4626Controllable(asset_, management_, emergency_) {
+        reward = reward_;
+        swapper = swapper_;
+        createdAt = block.timestamp;
+        compoundAt = block.timestamp;
+
+        _grantRole(KEEPER_ROLE, keeper_);
     }
 
     event Harvest(address indexed executor, uint256 amountReward, uint256 amountWant);
@@ -29,34 +41,50 @@ abstract contract ERC4626Compoundable is ERC4626, Ownable {
     event KeeperUpdated(address newKeeper);
     event SwapperUpdated(address newSwapper);
 
-    function setKeeper(address nextKeeper) public onlyOwner {
-        require(nextKeeper != address(0), "Zero address");
-        keeper = nextKeeper;
-        emit KeeperUpdated(keeper);
-    }
-
-
-    function setSwapper(ISwapper nextSwapper) public onlyOwner {
+    function setSwapper(ISwapper nextSwapper) public onlyRole(MANAGEMENT_ROLE) {
         uint256 expectedSwap = nextSwapper.previewSwap(reward, want, 10 ** reward.decimals());
+
         require(expectedSwap > 0, "This swapper doesn't supports swaps");
+
         swapper = nextSwapper;
+
         emit SwapperUpdated(address(swapper));
     }
 
-    function harvest() public onlyKeeper returns (uint256 wantAmount) {
-        (uint256 rewardAmount, uint256 wantAmount_ ) = _harvest();
+    function harvest() public onlyRole(KEEPER_ROLE) returns (uint256 wantAmount) {
+        (uint256 rewardAmount, uint256 wantAmount_) = _harvest();
+        
         wantAmount = wantAmount_;
+        
         emit Harvest(msg.sender, rewardAmount, wantAmount);
     }
 
-    function tend() public onlyKeeper returns (uint256 sharesAdded) {
-        (uint256 wantAmount, uint256 sharesAdded_ ) = _tend();
+    function tend() public onlyRole(KEEPER_ROLE) returns (uint256 sharesAdded) {
+        (uint256 wantAmount, uint256 sharesAdded_) = _tend();
         sharesAdded = sharesAdded_;
+        
+        totalEarned += wantAmount;
+
+        compoundAt = block.timestamp;
+
         emit Tend(msg.sender, wantAmount, sharesAdded);
     }
 
-    function previewHarvest() public virtual view returns (uint256);
-    function previewTend() public virtual view returns (uint256);
+    function expectedReturns(uint256 timestamp) public view virtual returns (uint256) {
+        require(timestamp >= compoundAt, "Unexpected timestamp");
+        uint256 timeElapsed = timestamp - compoundAt;
+        
+        uint256 totalTime = compoundAt - createdAt;
+
+        if (totalTime > 0) {
+            return totalEarned * timeElapsed / totalTime;
+        } else {
+            return 0;
+        }
+    }
+
+    function previewHarvest() public view virtual returns (uint256);
+    function previewTend() public view virtual returns (uint256);
     function _harvest() internal virtual returns (uint256 rewardAmount, uint256 wantAmount);
     function _tend() internal virtual returns (uint256 wantAmount, uint256 sharesAdded);
 }
