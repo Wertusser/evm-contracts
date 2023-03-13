@@ -61,16 +61,10 @@ contract StargateVault is ERC4626Compoundable, WithFees {
         return stargatePool.amountLPtoLD(info.amount);
     }
 
-    function _harvest() internal override returns (uint256 rewardAmount, uint256 wantAmount) {
+    function _harvest() internal override returns (uint256 rewardAmount) {
         stargateLPStaking.withdraw(poolStakingId, 0);
-
+        
         rewardAmount = reward.balanceOf(address(this));
-
-        if (rewardAmount > 0) {
-            wantAmount = swapper.swap(reward, want, rewardAmount);
-        } else {
-            wantAmount = 0;
-        }
     }
 
     function previewHarvest() public view override returns (uint256) {

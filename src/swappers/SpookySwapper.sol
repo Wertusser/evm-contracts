@@ -30,10 +30,10 @@ contract SpookySwapper is Swapper {
         swapRouter = swapRouter_;
     }
 
-    function swap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn) public override returns (uint256 amountOut) {
+    function swap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn, uint256 minAmountOut) public override returns (uint256 amountOut) {
         address[] memory path = _buildPath(assetFrom, assetTo);
 
-        amountOut = _swapWithPath(amountIn, 0, path);
+        amountOut = _swapWithPath(amountIn, minAmountOut, path);
 
         emit Swap(msg.sender, assetFrom, assetTo, amountIn, amountOut);
     }

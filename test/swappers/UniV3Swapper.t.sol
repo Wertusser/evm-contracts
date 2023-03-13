@@ -58,13 +58,13 @@ contract UniV3SwapperTest is Test, UniswapV3Helper {
         STG.approve(address(swapper), amountIn);
 
         uint256 expected = swapper.previewSwap(STG, WETH, amountIn);
-        uint256 actual = swapper.swap(STG, WETH, amountIn);
+        uint256 actual = swapper.swap(STG, WETH, amountIn, 0);
         uint256 balance = STG.balanceOf(msg.sender);
 
         assertEq(expected, actual);
         assertEq(actual, balance);
 
-        swapper.swap(WETH, STG, balance);
+        swapper.swap(WETH, STG, balance, 0);
 
         assertEq(STG.balanceOf(msg.sender), amountIn);
     }

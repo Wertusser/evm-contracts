@@ -6,40 +6,44 @@ import "../../periphery/ERC4626Compoundable.sol";
 import "../../periphery/FeesController.sol";
 import "../../periphery/ERC4626Compoundable.sol";
 import {ICurvePool} from "./external/ICurvePool.sol";
-import {ICurveGauge} from "./external/ICurveGauge.sol";
+import {ICurveGauge, ICurveMinter} from "./external/ICurveGauge.sol";
 import "forge-std/interfaces/IERC20.sol";
 
 contract CurveVault is ERC4626Compoundable, WithFees {
+    uint8 public constant COINS = 3;
+
+    IERC20 public constant CRV = IERC20(address(0x0));
+
     ///@notice curve pool contract
     ICurvePool public immutable curvePool;
     ///@notice curve gauge
     ICurveGauge public immutable curveGauge;
+    ///@notice curve gauge factory
+    ICurveMinter public immutable curveGaugeFactory;
     ///@notice curve pool lp token
     IERC20 public immutable lpToken;
     ///@notice coin id in curve pool
-    uint8 public immutable coinId;
-    ///@notice amount of supported coins in curve pool
-    uint8 public immutable poolSize;
+    int128 public immutable coinId;
+    ///@notice coin id in curve pool (used for array indexing)
+    uint8 public immutable _coinId;
 
     constructor(
         IERC20 asset_,
         ICurvePool pool_,
-        uint8 coinId_,
-        uint8 poolSize_,
         ICurveGauge gauge_,
-        IERC20 lpToken_,
-        IERC20 reward_,
+        ICurveMinter factory_,
         ISwapper swapper_,
         FeesController feesController_,
         address keeper,
         address management,
         address emergency
-    ) ERC4626Compoundable(asset_, reward_, swapper_, keeper, management, emergency) WithFees(feesController_) {
+    ) ERC4626Compoundable(asset_, CRV, swapper_, keeper, management, emergency) WithFees(feesController_) {
         curvePool = pool_;
         curveGauge = gauge_;
-        lpToken = lpToken_;
-        coinId = coinId_;
-        poolSize = poolSize_;
+        curveGaugeFactory = factory_;
+        lpToken = IERC20(gauge_.lp_token());
+        coinId = 0;
+        _coinId = 0;
     }
 
     /// -----------------------------------------------------------------------
@@ -50,14 +54,9 @@ contract CurveVault is ERC4626Compoundable, WithFees {
         return curvePool.calc_withdraw_one_coin(lpTokens, coinId);
     }
 
-    function _harvest() internal override returns (uint256 rewardAmount, uint256 wantAmount) {
-        rewardAmount = curvePool.claimable_tokens(address(this));
-
-        if (rewardAmount > 0) {
-            wantAmount = swapper.swap(reward, want, rewardAmount);
-        } else {
-            wantAmount = 0;
-        }
+    function _harvest() internal override returns (uint256 rewardAmount) {
+        curveGaugeFactory.mint(address(curveGauge));
+        rewardAmount = reward.balanceOf(address(this));
     }
 
     function previewHarvest() public view override returns (uint256) {
@@ -113,22 +112,23 @@ contract CurveVault is ERC4626Compoundable, WithFees {
         /// Add liquidity into Curve
         /// -----------------------------------------------------------------------
         want.approve(address(curvePool), assets);
-        
-        uint256[] memory amounts = new uint256[](poolSize);
-        amounts[coinId] = assets;
 
-        uint256 lpTokens = curvePool.add_liquidity(amounts, 0);
+        uint256[COINS] memory amounts;
+        amounts[_coinId] = assets;
 
+        curvePool.add_liquidity(amounts, 0);
+
+        uint256 lpTokens = lpToken.balanceOf(address(this));
         curveGauge.deposit(lpTokens);
     }
 
     function _unzapLiquidity(uint256 assets) internal returns (uint256) {
-         /// -----------------------------------------------------------------------
+        /// -----------------------------------------------------------------------
         /// Remove liquidity from Curve pool imbalance
         /// -----------------------------------------------------------------------
         uint256 lpTokens = assets;
 
-        curvePool.withdraw(lpTokens);
+        curveGauge.withdraw(lpTokens);
 
         curvePool.remove_liquidity_one_coin(lpTokens, coinId, 0);
     }

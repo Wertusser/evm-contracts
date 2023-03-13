@@ -10,7 +10,7 @@ abstract contract ERC4626Compoundable is ERC4626Controllable {
     IERC20 public reward;
     /// @notice Swapper contract
     ISwapper public swapper;
-    
+
     ///@notice total earned amount. Value changes after every tend() call
     uint256 public totalEarned;
     ///@notice block timestamp of last tend() call
@@ -42,19 +42,19 @@ abstract contract ERC4626Compoundable is ERC4626Controllable {
     event SwapperUpdated(address newSwapper);
 
     function setSwapper(ISwapper nextSwapper) public onlyRole(MANAGEMENT_ROLE) {
-        uint256 expectedSwap = nextSwapper.previewSwap(reward, want, 10 ** reward.decimals());
-
-        require(expectedSwap > 0, "This swapper doesn't supports swaps");
-
         swapper = nextSwapper;
 
         emit SwapperUpdated(address(swapper));
     }
 
-    function harvest() public onlyRole(KEEPER_ROLE) returns (uint256 wantAmount) {
-        (uint256 rewardAmount, uint256 wantAmount_) = _harvest();
+    function harvest(uint256 swapAmountOut) public onlyRole(KEEPER_ROLE) returns (uint256 wantAmount) {
+        uint256 rewardAmount = _harvest();
         
-        wantAmount = wantAmount_;
+        if (rewardAmount > 0) {
+            wantAmount = swapper.swap(reward, want, rewardAmount, swapAmountOut);
+        } else {
+            wantAmount = 0;
+        }
         
         emit Harvest(msg.sender, rewardAmount, wantAmount);
     }
@@ -85,6 +85,6 @@ abstract contract ERC4626Compoundable is ERC4626Controllable {
 
     function previewHarvest() public view virtual returns (uint256);
     function previewTend() public view virtual returns (uint256);
-    function _harvest() internal virtual returns (uint256 rewardAmount, uint256 wantAmount);
+    function _harvest() internal virtual returns (uint256 rewardAmount);
     function _tend() internal virtual returns (uint256 wantAmount, uint256 sharesAdded);
 }

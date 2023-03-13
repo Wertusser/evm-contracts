@@ -28,7 +28,7 @@ contract DeployScript is Script {
 
         console2.log("preview STG -> USDC", deployed.previewSwap(STG, USDC, 10 ** 12));
         STG.approve(address(deployed), 10 ** 12);
-        console2.log("swap STG -> USDC", deployed.swap(STG, USDC, 10 ** 12));
+        console2.log("swap STG -> USDC", deployed.swap(STG, USDC, 10 ** 12, 0));
 
         vm.stopBroadcast();
     }

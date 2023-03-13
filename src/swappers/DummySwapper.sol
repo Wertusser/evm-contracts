@@ -24,8 +24,8 @@ contract DummySwapper is Swapper, Ownable {
         return 0;
     }
 
-    function swap(IERC20 assetFrom, IERC20 assetTo, uint256 amount) public override returns (uint256) {
-        assetTo.transferFrom(msg.sender, receiver, amount);
+    function swap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn, uint256 minAmountOut) public override returns (uint256) {
+        assetTo.transferFrom(msg.sender, receiver, amountIn);
         return 0;
     }
 
