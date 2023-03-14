@@ -83,8 +83,6 @@ abstract contract ERC4626Compoundable is ERC4626Controllable {
         }
     }
 
-    function previewHarvest() public view virtual returns (uint256);
-    function previewTend() public view virtual returns (uint256);
     function _harvest() internal virtual returns (uint256 rewardAmount);
     function _tend() internal virtual returns (uint256 wantAmount, uint256 sharesAdded);
 }

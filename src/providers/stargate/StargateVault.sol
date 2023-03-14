@@ -67,12 +67,6 @@ contract StargateVault is ERC4626Compoundable, WithFees {
         rewardAmount = reward.balanceOf(address(this));
     }
 
-    function previewHarvest() public view override returns (uint256) {
-        uint256 pendingReward = stargateLPStaking.pendingStargate(poolStakingId, address(this));
-
-        return swapper.previewSwap(reward, want, pendingReward);
-    }
-
     function _tend() internal override returns (uint256 wantAmount, uint256 sharesAdded) {
         uint256 assets = want.balanceOf(address(this));
         uint256 feesAmount = feesController.onHarvest(assets);
@@ -85,11 +79,6 @@ contract StargateVault is ERC4626Compoundable, WithFees {
         uint256 lpTokens = lpToken.balanceOf(address(this));
 
         stargateLPStaking.deposit(poolStakingId, lpTokens);
-    }
-
-    function previewTend() public view override returns (uint256) {
-        uint256 harvested = previewHarvest();
-        return getStargateLP(harvested);
     }
 
     function deposit(uint256 assets, address receiver) public virtual override whenNotPaused returns (uint256) {

@@ -59,17 +59,9 @@ contract CurveVault is ERC4626Compoundable, WithFees {
         rewardAmount = reward.balanceOf(address(this));
     }
 
-    function previewHarvest() public view override returns (uint256) {
-        return 0;
-    }
-
     function _tend() internal override returns (uint256 wantAmount, uint256 sharesAdded) {
         wantAmount = want.balanceOf(address(this));
         sharesAdded = _zapLiquidity(wantAmount);
-    }
-
-    function previewTend() public view override returns (uint256) {
-        return 0;
     }
 
     function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal {
