@@ -3,6 +3,7 @@ pragma solidity ^0.8.4;
 
 import {IStargateLPStaking} from "../../../src/providers/stargate/external/IStargateLPStaking.sol";
 import {ERC20Mock} from "../../mocks/ERC20.m.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 contract StargateLPStakingMock is IStargateLPStaking {
     ERC20Mock public lpToken;
@@ -20,7 +21,12 @@ contract StargateLPStakingMock is IStargateLPStaking {
     }
 
     function poolInfo(uint256 _pid) external view returns (PoolInfo memory) {
-      return poolInfo_;
+      return PoolInfo({
+        lpToken: IERC20(address(lpToken)),
+        allocPoint: 4000,
+        lastRewardBlock: 16851374,
+        accStargatePerShare: 10000
+      });
     }
 
     function deposit(uint256 _pid, uint256 _amount) external {
