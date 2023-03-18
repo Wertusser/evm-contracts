@@ -1,4 +1,30 @@
-# evm-contracts
+# Yasp's EVM contracts
+
+Welcome to the YaspFI EVM Contracts repository, which contains multiple vaults based on ERC-4626 for various DeFi protocols. This repository contains smart contracts that allow users to lock up their tokens and auto-compound rewards from different yield DeFi farms.
+
+## Structure
+
+The repository contains the following structure:
+
+ - `src/providers/` This directory contains all of the vault implementations for various DeFi protocols. Each provider has its own subdirectory, which contains a contract that inherits from the Vault contract and implements provider-specific functionality. The providers currently supported include AaveV3, Stargate and Curve.
+ - `src/swappers/` contains all swappers that helps Vaults to swap reward tokens back to underlying. Currently we supports Uniswap V3 as an primary swap providers, but is Uniswap V3 is not supported on certain blockchain, we integrate local AMM (like PancakeSwap on BSC or SpookySwap on Fantom)
+ - `src/periphery/` This directory contains additional contracts that are used for peripheral functionality of the YaspFI platform.
+ - `test/` This directory contains all of the tests for the contracts in the repository. The tests are written in Solidity and use the Foundry. The tests cover all of the functionality of the contracts, including depositing tokens, withdrawing tokens, and auto-compounding rewards.
+ - `scripts/` includes all Solidity scripts that was used for deploying contracts via `forge`
+## Getting Started
+To get started with using these contracts, you can clone the repository and build smart contracts via [Foundry](https://book.getfoundry.sh/)  using this command:
+```bash
+forge build
+```
+If you have never used Foundry to develop smart contracts, we highly recommend trying this toolkit because of its coolness and convenience.
+
+## Testing
+For each contract, a small set of tests is written to test the concept. Generalized property tests for ERC-4626 contracts have also been integrated, for which many thanks to A16Z for [this repo](https://github.com/a16z/erc4626-tests).
+```bash
+forge test # Runs all tests
+forge test -vvv --match-contract AaveV3VaultStdTest # runs only prop tests for AaveV3 Vault
+forge test -vvv --match-contract StargateVaultStdTest # runs only prop tests for Stargate Vault
+```
 
 ## Deployed addresses
 
@@ -77,3 +103,6 @@
 * [Aave V3 WAVAX Vault](https://snowtrace.io/address/0x560EACaA2a7007a2DC26342A7D5da98baEfEdD35)
 * [Aave V3 WBTC.e Vault](https://snowtrace.io/address/0x0486fD9eA0Ab8Ae1A0a7a4DC39F0F49517f2dec1)
 * [Aave V3 WETH.e Vault](https://snowtrace.io/address/0x5dd836828cB262bE9519c6430dB1bf4cF1Ed850e)
+
+## License
+All the contracts in this repository are licensed under the MIT License. You can use these contracts for any commercial or non-commercial purpose, subject to the terms and conditions of the license.
