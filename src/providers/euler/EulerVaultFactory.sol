@@ -7,7 +7,7 @@ import {ERC4626} from "solmate/mixins/ERC4626.sol";
 import {EulerVault} from "./EulerVault.sol";
 import {IEulerMarkets} from "./external/IEulerMarkets.sol";
 import {IEulerEToken} from "./external/IEulerEToken.sol";
-import {ERC4626Factory} from "../../ERC4626Factory.sol";
+import {ERC4626Factory} from "../../periphery/ERC4626Factory.sol";
 
 /// @title EulerVaultFactory
 /// @notice Factory for creating EulerVault contracts

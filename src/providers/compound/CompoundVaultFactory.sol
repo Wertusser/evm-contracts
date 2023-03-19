@@ -6,7 +6,7 @@ import {ERC4626} from "solmate/mixins/ERC4626.sol";
 import {ICERC20} from "./external/ICERC20.sol";
 import {CompoundVault} from "./CompoundVault.sol";
 import {IComptroller} from "./external/IComptroller.sol";
-import {ERC4626Factory} from "../../ERC4626Factory.sol";
+import {ERC4626Factory} from "../../periphery/ERC4626Factory.sol";
 
 /// @title CompoundVaultFactory
 /// @notice Factory for creating CompoundVault contracts

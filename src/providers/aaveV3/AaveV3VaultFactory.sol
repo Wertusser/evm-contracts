@@ -6,7 +6,7 @@ import {ERC4626} from "solmate/mixins/ERC4626.sol";
 
 import {IPool} from "./external/IPool.sol";
 import {AaveV3Vault} from "./AaveV3Vault.sol";
-import {ERC4626Factory} from "../../ERC4626Factory.sol";
+import {ERC4626Factory} from "../../periphery/ERC4626Factory.sol";
 import {IRewardsController} from "./external/IRewardsController.sol";
 
 /// @title AaveV3VaultFactory
