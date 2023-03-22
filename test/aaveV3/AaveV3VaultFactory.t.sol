@@ -3,7 +3,7 @@ pragma solidity ^0.8.4;
 import "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
-import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ERC20} from "../../src/periphery/ERC20.sol";
 import {IRewardsController} from "../../src/providers/aaveV3/external/IRewardsController.sol";
 import {IPool} from "../../src/providers/aaveV3/external/IPool.sol";
 

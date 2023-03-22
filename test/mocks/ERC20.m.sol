@@ -1,6 +1,6 @@
 pragma solidity ^0.8.4;
 
-import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ERC20} from "../../src/periphery/ERC20.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 interface IERC20Like is IERC20 {

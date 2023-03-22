@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
-import {ERC20} from "solmate/tokens/ERC20.sol";
-import {ERC4626} from "solmate/mixins/ERC4626.sol";
+import {IERC20, ERC20} from "../../periphery/ERC20.sol";
+import {ERC4626} from "../../periphery/ERC4626.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {IPool} from "./external/IPool.sol";
 import {IRewardsController} from "./external/IRewardsController.sol";
@@ -60,7 +60,7 @@ contract AaveV3Vault is ERC4626 {
         IPool lendingPool_,
         address rewardRecipient_,
         IRewardsController rewardsController_
-    ) ERC4626(asset_, _vaultName(asset_), _vaultSymbol(asset_)) {
+    ) ERC4626(asset_) {
         aToken = aToken_;
         lendingPool = lendingPool_;
         rewardRecipient = rewardRecipient_;
@@ -88,11 +88,11 @@ contract AaveV3Vault is ERC4626 {
         return aToken.balanceOf(address(this));
     }
 
-    function beforeWithdraw(uint256 assets, uint256 /*shares*/) internal virtual override {
+    function beforeWithdraw(uint256 assets, uint256 /*shares*/) internal virtual override returns (uint256) {
         /// -----------------------------------------------------------------------
         /// Withdraw assets from Aave
         /// -----------------------------------------------------------------------
-        lendingPool.withdraw(address(asset), assets, address(this));
+        return lendingPool.withdraw(address(_asset), assets, address(this));
     }
 
     function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal virtual override {
@@ -101,16 +101,16 @@ contract AaveV3Vault is ERC4626 {
         /// -----------------------------------------------------------------------
 
         // approve to lendingPool
-        asset.safeApprove(address(lendingPool), assets);
+        _asset.approve(address(lendingPool), assets);
 
         // deposit into lendingPool
         // TODO: add refferal code
-        lendingPool.supply(address(asset), assets, address(this), 0);
+        lendingPool.supply(address(_asset), assets, address(this), 0);
     }
 
     function maxDeposit(address) public view virtual override returns (uint256) {
         // check if asset is paused
-        uint256 configData = lendingPool.getReserveData(address(asset)).configuration.data;
+        uint256 configData = lendingPool.getReserveData(address(_asset)).configuration.data;
         if (!(_getActive(configData) && !_getFrozen(configData) && !_getPaused(configData))) {
             return 0;
         }
@@ -128,7 +128,7 @@ contract AaveV3Vault is ERC4626 {
 
     function maxMint(address) public view virtual override returns (uint256) {
         // check if asset is paused
-        uint256 configData = lendingPool.getReserveData(address(asset)).configuration.data;
+        uint256 configData = lendingPool.getReserveData(address(_asset)).configuration.data;
         if (!(_getActive(configData) && !_getFrozen(configData) && !_getPaused(configData))) {
             return 0;
         }
@@ -146,26 +146,26 @@ contract AaveV3Vault is ERC4626 {
 
     function maxWithdraw(address owner) public view virtual override returns (uint256) {
         // check if asset is paused
-        uint256 configData = lendingPool.getReserveData(address(asset)).configuration.data;
+        uint256 configData = lendingPool.getReserveData(address(_asset)).configuration.data;
         if (!(_getActive(configData) && !_getPaused(configData))) {
             return 0;
         }
 
-        uint256 cash = asset.balanceOf(address(aToken));
-        uint256 assetsBalance = convertToAssets(balanceOf[owner]);
+        uint256 cash = _asset.balanceOf(address(aToken));
+        uint256 assetsBalance = convertToAssets(balanceOf(owner));
         return cash < assetsBalance ? cash : assetsBalance;
     }
 
     function maxRedeem(address owner) public view virtual override returns (uint256) {
         // check if asset is paused
-        uint256 configData = lendingPool.getReserveData(address(asset)).configuration.data;
+        uint256 configData = lendingPool.getReserveData(address(_asset)).configuration.data;
         if (!(_getActive(configData) && !_getPaused(configData))) {
             return 0;
         }
 
-        uint256 cash = asset.balanceOf(address(aToken));
+        uint256 cash = _asset.balanceOf(address(aToken));
         uint256 cashInShares = convertToShares(cash);
-        uint256 shareBalance = balanceOf[owner];
+        uint256 shareBalance = balanceOf(owner);
         return cashInShares < shareBalance ? cashInShares : shareBalance;
     }
 
@@ -173,11 +173,11 @@ contract AaveV3Vault is ERC4626 {
     /// ERC20 metadata generation
     /// -----------------------------------------------------------------------
 
-    function _vaultName(ERC20 asset_) internal view virtual returns (string memory vaultName) {
+    function _vaultName(IERC20 asset_) internal view override returns (string memory vaultName) {
         vaultName = string.concat("Yasp Aave v3 Vault", asset_.symbol());
     }
 
-    function _vaultSymbol(ERC20 asset_) internal view virtual returns (string memory vaultSymbol) {
+    function _vaultSymbol(IERC20 asset_) internal view override returns (string memory vaultSymbol) {
         vaultSymbol = string.concat("yav3", asset_.symbol());
     }
 

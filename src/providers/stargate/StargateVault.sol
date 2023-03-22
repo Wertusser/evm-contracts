@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.9;
 
 import "./external/IStargateLPStaking.sol";
@@ -68,7 +68,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     }
 
     function _tend() internal override returns (uint256 wantAmount, uint256 sharesAdded) {
-        uint256 assets = want.balanceOf(address(this));
+        uint256 assets = _asset.balanceOf(address(this));
         uint256 feesAmount = feesController.onHarvest(assets);
         wantAmount = assets - feesAmount;
 
@@ -81,55 +81,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
         stargateLPStaking.deposit(poolStakingId, lpTokens);
     }
 
-    function deposit(uint256 assets, address receiver) public virtual override whenNotPaused returns (uint256) {
-        require(assets <= maxDeposit(receiver), "ERC4626: deposit more than max");
-
-        uint256 shares = previewDeposit(assets);
-
-        _deposit(_msgSender(), receiver, assets, shares);
-
-        afterDeposit(assets, shares);
-
-        return shares;
-    }
-
-    function mint(uint256 shares, address receiver) public virtual override whenNotPaused returns (uint256) {
-        require(shares <= maxMint(receiver), "ERC4626: mint more than max");
-
-        uint256 assets = previewMint(shares);
-
-        _deposit(_msgSender(), receiver, assets, shares);
-
-        afterDeposit(assets, shares);
-
-        return assets;
-    }
-
-    function withdraw(uint256 assets, address receiver, address owner) public virtual override returns (uint256) {
-        require(assets <= maxWithdraw(owner), "ERC4626: withdraw more than max");
-
-        uint256 shares = previewWithdraw(assets);
-
-        uint256 wantAmount = beforeWithdraw(assets, shares);
-
-        _withdraw(_msgSender(), receiver, owner, wantAmount, shares);
-
-        return shares;
-    }
-
-    function redeem(uint256 shares, address receiver, address owner) public virtual override returns (uint256) {
-        require(shares <= maxRedeem(owner), "ERC4626: redeem more than max");
-
-        uint256 assets = previewRedeem(shares);
-
-        uint256 wantAmount = beforeWithdraw(assets, shares);
-
-        _withdraw(_msgSender(), receiver, owner, wantAmount, shares);
-
-        return wantAmount;
-    }
-
-    function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal virtual returns (uint256) {
+    function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal virtual override returns (uint256) {
         /// -----------------------------------------------------------------------
         /// Withdraw assets from Stargate
         /// -----------------------------------------------------------------------
@@ -145,14 +97,14 @@ contract StargateVault is ERC4626Compoundable, WithFees {
         return stargateRouter.instantRedeemLocal(uint16(stargatePool.poolId()), lpTokens, address(this));
     }
 
-    function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal virtual {
+    function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal virtual override whenNotPaused {
         /// -----------------------------------------------------------------------
         /// Deposit assets into Stargate
         /// -----------------------------------------------------------------------
         uint256 feesAmount = feesController.onDeposit(assets);
         uint256 wantAmount = assets - feesAmount;
 
-        want.approve(address(stargateRouter), wantAmount);
+        _asset.approve(address(stargateRouter), wantAmount);
 
         uint256 lpTokensBefore = lpToken.balanceOf(address(this));
 
@@ -175,20 +127,20 @@ contract StargateVault is ERC4626Compoundable, WithFees {
         return paused() ? 0 : type(uint256).max;
     }
 
-    function maxWithdraw(address owner) public view override returns (uint256) {
-        uint256 cash = want.balanceOf(address(stargatePool));
+    function maxWithdraw(address account) public view override returns (uint256) {
+        uint256 cash = _asset.balanceOf(address(stargatePool));
 
-        uint256 assetsBalance = convertToAssets(this.balanceOf(owner));
+        uint256 assetsBalance = convertToAssets(this.balanceOf(account));
 
         return cash < assetsBalance ? cash : assetsBalance;
     }
 
-    function maxRedeem(address owner) public view override returns (uint256) {
-        uint256 cash = want.balanceOf(address(stargatePool));
+    function maxRedeem(address account) public view override returns (uint256) {
+        uint256 cash = _asset.balanceOf(address(stargatePool));
 
         uint256 cashInShares = convertToShares(cash);
 
-        uint256 shareBalance = this.balanceOf(owner);
+        uint256 shareBalance = this.balanceOf(account);
 
         return cashInShares < shareBalance ? cashInShares : shareBalance;
     }

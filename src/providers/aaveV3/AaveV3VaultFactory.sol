@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
-import {ERC20} from "solmate/tokens/ERC20.sol";
-import {ERC4626} from "solmate/mixins/ERC4626.sol";
+import {ERC20, IERC20} from "../../periphery/ERC20.sol";
+import {ERC4626} from "../../periphery/ERC4626.sol";
 
 import {IPool} from "./external/IPool.sol";
 import {AaveV3Vault} from "./AaveV3Vault.sol";
@@ -46,7 +46,7 @@ contract AaveV3VaultFactory is ERC4626Factory {
     /// External functions
     /// -----------------------------------------------------------------------
 
-    /// @inheritdoc ERC4626Factory
+    
     function createERC4626(ERC20 asset) external virtual override returns (ERC4626 vault) {
         IPool.ReserveData memory reserveData = lendingPool.getReserveData(address(asset));
         address aTokenAddress = reserveData.aTokenAddress;
@@ -59,7 +59,7 @@ contract AaveV3VaultFactory is ERC4626Factory {
         emit CreateERC4626(asset, vault);
     }
 
-    /// @inheritdoc ERC4626Factory
+    
     function computeERC4626Address(ERC20 asset) external view virtual override returns (ERC4626 vault) {
         IPool.ReserveData memory reserveData = lendingPool.getReserveData(address(asset));
         address aTokenAddress = reserveData.aTokenAddress;

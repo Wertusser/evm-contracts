@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
 import "forge-std/interfaces/IERC20.sol";
@@ -51,7 +51,7 @@ abstract contract ERC4626Compoundable is ERC4626Controllable {
         uint256 rewardAmount = _harvest();
         
         if (rewardAmount > 0) {
-            wantAmount = swapper.swap(reward, want, rewardAmount, swapAmountOut);
+            wantAmount = swapper.swap(reward, _asset, rewardAmount, swapAmountOut);
         } else {
             wantAmount = 0;
         }

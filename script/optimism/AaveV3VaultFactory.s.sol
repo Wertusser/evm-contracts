@@ -2,7 +2,8 @@ pragma solidity ^0.8.13;
 
 import 'forge-std/Script.sol';
 
-import {ERC20} from 'solmate/tokens/ERC20.sol';
+import {ERC20} from '../../src/periphery/ERC20.sol';
+
 import {IPool} from '../../src/providers/aaveV3/external/IPool.sol';
 import {IRewardsController} from '../../src/providers/aaveV3/external/IRewardsController.sol';
 import {AaveV3VaultFactory} from '../../src/providers/aaveV3/AaveV3VaultFactory.sol';

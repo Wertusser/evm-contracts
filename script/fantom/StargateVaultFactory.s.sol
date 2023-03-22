@@ -2,7 +2,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 
-import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ERC20} from '../../src/periphery/ERC20.sol';
 import "forge-std/interfaces/IERC20.sol";
 import "../../src/providers/stargate/external/IStargateLPStaking.sol";
 import "../../src/providers/stargate/external/IStargateRouter.sol";
@@ -29,7 +29,7 @@ contract DeployScript is Script {
         vault = address(deployed.computeERC4626Address_(poolId, stakingId, reward));
 
         USDC.approve(vault, 10 ** 6);
-        require(StargateVault(vault).owner() == ADMIN);
+        
         console2.log("USDC balance", USDC.balanceOf(ADMIN));
         uint256 shares = StargateVault(vault).deposit(10 ** 6, ADMIN);
         IERC20(vault).approve(vault, shares / 10);
@@ -49,7 +49,7 @@ contract DeployScript is Script {
           IStargateRouter(address(0xAf5191B0De278C7286d6C7CC6ab6BB8A73bA2Cd6)),
           IStargateLPStaking(address(0x224D8Fd7aB6AD4c6eb4611Ce56EF35Dec2277F03)),
           FeesController(address(0x9D2AcB1D33eb6936650Dafd6e56c9B2ab0Dd680c)),
-          ISwapper(address(0x8eaE291df7aDe0B868d4495673FC595483a9Cc24)),
+          ISwapper(address(0x85a5F96a3a8dE92E1187516B8F27c29F265362f1)),
           ADMIN
         );
         // deployed = StargateVaultFactory(address());

@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
-import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ERC20} from "../../../periphery/ERC20.sol";
 
 import {IInterestRateModel} from "./IInterestRateModel.sol";
 

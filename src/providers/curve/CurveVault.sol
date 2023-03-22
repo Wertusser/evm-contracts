@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/security/Pausable.sol";
@@ -60,15 +60,15 @@ contract CurveVault is ERC4626Compoundable, WithFees {
     }
 
     function _tend() internal override returns (uint256 wantAmount, uint256 sharesAdded) {
-        wantAmount = want.balanceOf(address(this));
+        wantAmount = _asset.balanceOf(address(this));
         sharesAdded = _zapLiquidity(wantAmount);
     }
 
-    function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal {
-        _unzapLiquidity(assets);
+    function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal override returns (uint256)  {
+        return _unzapLiquidity(assets);
     }
 
-    function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal {
+    function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal override {
         _zapLiquidity(assets);
     }
 
@@ -82,14 +82,14 @@ contract CurveVault is ERC4626Compoundable, WithFees {
 
     function maxWithdraw(address owner) public view virtual override returns (uint256) {
         if (curvePool.is_killed()) return 0;
-        uint256 totalLiquidity = want.balanceOf(address(curvePool));
+        uint256 totalLiquidity = _asset.balanceOf(address(curvePool));
         uint256 assetsBalance = convertToAssets(this.balanceOf(owner));
         return totalLiquidity < assetsBalance ? totalLiquidity : assetsBalance;
     }
 
     function maxRedeem(address owner) public view virtual override returns (uint256) {
         if (curvePool.is_killed()) return 0;
-        uint256 totalLiquidity = want.balanceOf(address(curvePool));
+        uint256 totalLiquidity = _asset.balanceOf(address(curvePool));
         uint256 totalLiquidityInShares = convertToShares(totalLiquidity);
         uint256 shareBalance = this.balanceOf(owner);
         return totalLiquidityInShares < shareBalance ? totalLiquidityInShares : shareBalance;
@@ -103,7 +103,7 @@ contract CurveVault is ERC4626Compoundable, WithFees {
         /// -----------------------------------------------------------------------
         /// Add liquidity into Curve
         /// -----------------------------------------------------------------------
-        want.approve(address(curvePool), assets);
+        _asset.approve(address(curvePool), assets);
 
         uint256[COINS] memory amounts;
         amounts[_coinId] = assets;
