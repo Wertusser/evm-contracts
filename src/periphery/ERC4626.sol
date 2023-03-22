@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/interfaces/IERC20.sol";
 import "./ERC20.sol";
-import "./Math.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @dev Interface of the ERC4626 "Tokenized Vault Standard", as defined in
@@ -333,7 +333,7 @@ abstract contract ERC4626 is ERC20, IERC4626 {
 
         uint256 shares = previewDeposit(assets);
 
-        _deposit(msg.sender, receiver, assets, shares);
+        _deposit(_msgSender(), receiver, assets, shares);
 
         afterDeposit(assets, shares);
 
@@ -351,7 +351,7 @@ abstract contract ERC4626 is ERC20, IERC4626 {
 
         uint256 assets = previewMint(shares);
 
-        _deposit(msg.sender, receiver, assets, shares);
+        _deposit(_msgSender(), receiver, assets, shares);
 
         afterDeposit(assets, shares);
 
@@ -368,7 +368,7 @@ abstract contract ERC4626 is ERC20, IERC4626 {
 
         uint256 wantAmount = beforeWithdraw(assets, shares);
 
-        _withdraw(msg.sender, receiver, account, wantAmount, shares);
+        _withdraw(_msgSender(), receiver, account, wantAmount, shares);
 
         return shares;
     }
@@ -383,7 +383,7 @@ abstract contract ERC4626 is ERC20, IERC4626 {
 
         uint256 wantAmount = beforeWithdraw(assets, shares);
 
-        _withdraw(msg.sender, receiver, account, wantAmount, shares);
+        _withdraw(_msgSender(), receiver, account, wantAmount, shares);
 
         return wantAmount;
     }

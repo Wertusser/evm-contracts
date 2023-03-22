@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
-import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "forge-std/interfaces/IERC20.sol";
+import {IERC4626} from "./ERC4626.sol";
 
-interface IERC4626 {
-    function asset() external view returns (address);
-}
 
 contract WithFees is Ownable {
     /// @notice fees controller
@@ -106,7 +103,7 @@ contract FeesController is Ownable {
         feesAmount = amount * bps / MAX_BPS;
 
         if (feesAmount > 0) {
-            TransferHelper.safeTransferFrom(asset, vault, treasury, feesAmount);
+            IERC20(asset).transferFrom(vault, treasury, feesAmount);
             feesCollected[vault] += feesAmount;
 
             emit FeesCollected(vault, feesAmount, asset);

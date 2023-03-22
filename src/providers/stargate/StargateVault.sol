@@ -153,7 +153,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
         if (amount_ == 0) {
             return 0;
         }
-        uint256 totalSupply = stargatePool.totalSupply();
+        uint256 totalSupply_ = stargatePool.totalSupply();
         uint256 totalLiquidity = stargatePool.totalLiquidity();
         uint256 convertRate = stargatePool.convertRate();
 
@@ -161,7 +161,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
 
         uint256 LDToSD = amount_ / convertRate;
 
-        lpTokens = LDToSD * totalSupply / totalLiquidity;
+        lpTokens = LDToSD * totalSupply_ / totalLiquidity;
     }
 
     /// -----------------------------------------------------------------------
