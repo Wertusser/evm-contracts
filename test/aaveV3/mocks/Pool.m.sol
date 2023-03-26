@@ -36,6 +36,8 @@ contract PoolMock is IPool {
     }
 
     function getReserveData(address asset) external view override returns (IPool.ReserveData memory data) {
+        /// active pool Aave V3 config
+        data.configuration = ReserveConfigurationMap(379853412004453730017650325597649023837875453566284);
         data.aTokenAddress = reserveAToken[asset];
     }
 }
