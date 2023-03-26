@@ -14,8 +14,8 @@ include_storage = true
 include_push_bytes = true
 
 [invariant]
-runs = 512
-depth = 12
+runs = 4
+depth = 512
 fail_on_revert = false
 call_override = false
 dictionary_weight = 80

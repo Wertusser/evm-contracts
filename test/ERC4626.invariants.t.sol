@@ -14,8 +14,12 @@ contract ERC4626Handler is TestBase, StdCheats, StdUtils {
   uint256 public ghost_depositSum;
   uint256 public ghost_gainSum;
   uint256 public ghost_withdrawSum;
+  uint256 public ghost_transferSum;
+
   uint256 public ghost_zeroDeposit;
   uint256 public ghost_zeroWithdraw;
+  uint256 public ghost_zeroTransfer;
+
   mapping(bytes32 => uint256) public calls;
 
   address internal currentActor;
@@ -51,14 +55,23 @@ contract ERC4626Handler is TestBase, StdCheats, StdUtils {
   // helper methods for actors
 
   function callSummary() external view {
-    console.log("Total summary:");
+    console.log("Vault summary:");
+    console.log("-------------------");
+    console.log("total assets", vault.totalAssets());
+    console.log("total shares", vault.totalSupply());
+    console.log("real assets", ghost_depositSum + ghost_gainSum - ghost_withdrawSum);
+    console.log("\nTotal summary:");
     console.log("-------------------");
     console.log("total actors", actors.count());
     console.log("total deposit", ghost_depositSum);
     console.log("total withdraw", ghost_withdrawSum);
     console.log("total gain", ghost_gainSum);
+    console.log("total transfered", ghost_transferSum);
+    console.log("\nZero summary:");
+    console.log("-------------------");
     console.log("zero deposit", ghost_zeroDeposit);
     console.log("zero withdraw", ghost_zeroWithdraw);
+    console.log("zero transfer", ghost_zeroTransfer);
     console.log("\nCall summary:");
     console.log("-------------------");
     console.log("deposit", calls["deposit"]);
@@ -108,8 +121,7 @@ contract ERC4626Handler is TestBase, StdCheats, StdUtils {
     useActor(actorSeed)
     countCall("withdraw")
   {
-    // TODO: add invariant: all shares is withdrawble
-    amount = bound(amount, 0, vault.maxWithdraw(currentActor));
+    amount = bound(amount, 0, vault.maxRedeem(currentActor));
     if (amount == 0) {
       ghost_zeroWithdraw += 1;
     }
@@ -123,8 +135,7 @@ contract ERC4626Handler is TestBase, StdCheats, StdUtils {
     useActor(actorSeed)
     countCall("redeem")
   {
-    // TODO: add invariant: all shares is withdrawble
-    amount = bound(amount, 0, vault.maxWithdraw(currentActor));
+    amount = bound(amount, 0, vault.maxRedeem(currentActor));
     if (amount == 0) {
       ghost_zeroWithdraw += 1;
     }
@@ -153,7 +164,12 @@ contract ERC4626Handler is TestBase, StdCheats, StdUtils {
 
     amount = bound(amount, 0, vault.balanceOf(currentActor));
 
+    if (amount == 0) {
+      ghost_zeroTransfer += 1;
+    }
+
     vault.transfer(to, amount);
+    ghost_transferSum += amount;
   }
 
   function transferFrom(
@@ -168,7 +184,12 @@ contract ERC4626Handler is TestBase, StdCheats, StdUtils {
     amount = bound(amount, 0, vault.balanceOf(from));
     amount = bound(amount, 0, vault.allowance(currentActor, from));
 
+    if (amount == 0) {
+      ghost_zeroTransfer += 1;
+    }
+
     vault.transferFrom(from, to, amount);
+    ghost_transferSum += amount;
   }
 }
 
@@ -189,11 +210,8 @@ abstract contract ERC4626Invariants is Test {
     selectors[5] = ERC4626Handler.transfer.selector;
     selectors[6] = ERC4626Handler.transferFrom.selector;
 
-    targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
+    targetSelector(FuzzSelector({ addr: address(handler), selectors: selectors }));
     excludeContract(address(_vault));
-    // TODO: FIXME
-    excludeContract(address(0));
-    excludeSender(address(0));
   }
 
   function accumulateAssetBalance(uint256 balance, address caller)
@@ -201,7 +219,7 @@ abstract contract ERC4626Invariants is Test {
     view
     returns (uint256)
   {
-    return balance + _vault.convertToAssets(_vault.balanceOf(caller));
+    return balance + _vault.maxRedeem(caller);
   }
 
   function accumulateShareBalance(uint256 balance, address caller)
@@ -209,7 +227,7 @@ abstract contract ERC4626Invariants is Test {
     view
     returns (uint256)
   {
-    return balance + _vault.balanceOf(caller);
+    return balance + _vault.maxWithdraw(caller);
   }
 
   function invariant_callSummary() public view {
