@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 import "forge-std/Script.sol";
 import "forge-std/interfaces/IERC20.sol";
 
-import {ERC20} from '../../src/periphery/ERC20.sol';
+import {ERC20} from "../../src/periphery/ERC20.sol";
 import {DummySwapper} from "../../src/swappers/DummySwapper.sol";
 import {StargateVault} from "../../src/providers/stargate/StargateVault.sol";
 
