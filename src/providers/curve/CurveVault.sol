@@ -10,40 +10,37 @@ import {ICurveGauge, ICurveMinter} from "./external/ICurveGauge.sol";
 import "forge-std/interfaces/IERC20.sol";
 
 contract CurveVault is ERC4626Compoundable, WithFees {
-    uint8 public constant COINS = 3;
-
-    IERC20 public constant CRV = IERC20(address(0x0));
-
+    uint8 public immutable coins;
     ///@notice curve pool contract
     ICurvePool public immutable curvePool;
     ///@notice curve gauge
     ICurveGauge public immutable curveGauge;
-    ///@notice curve gauge factory
-    ICurveMinter public immutable curveGaugeFactory;
     ///@notice curve pool lp token
     IERC20 public immutable lpToken;
     ///@notice coin id in curve pool
-    int128 public immutable coinId;
-    ///@notice coin id in curve pool (used for array indexing)
-    uint8 public immutable _coinId;
+    uint8 public immutable coinId;
 
     constructor(
         IERC20 asset_,
+        IERC20 reward_,
         ICurvePool pool_,
         ICurveGauge gauge_,
-        ICurveMinter factory_,
+        uint8 coinId_,
+        uint8 coins_,
         ISwapper swapper_,
         FeesController feesController_,
         address keeper,
         address management,
         address emergency
-    ) ERC4626Compoundable(asset_, CRV, swapper_, keeper, management, emergency) WithFees(feesController_) {
+    ) ERC4626Compoundable(asset_, reward_, swapper_, keeper, management, emergency) WithFees(feesController_) {
         curvePool = pool_;
         curveGauge = gauge_;
-        curveGaugeFactory = factory_;
         lpToken = IERC20(gauge_.lp_token());
-        coinId = 0;
-        _coinId = 0;
+
+        coinId = coinId_;
+        coins = coins_;
+
+        require(pool_.coins(int128(int8(coinId))) == address(asset_));
     }
 
     /// -----------------------------------------------------------------------
@@ -51,11 +48,11 @@ contract CurveVault is ERC4626Compoundable, WithFees {
     /// -----------------------------------------------------------------------
     function totalAssets() public view override returns (uint256) {
         uint256 lpTokens = curveGauge.balanceOf(address(this));
-        return curvePool.calc_withdraw_one_coin(lpTokens, coinId);
+        return curvePool.calc_withdraw_one_coin(lpTokens, int128(int8(coinId)));
     }
 
     function _harvest() internal override returns (uint256 rewardAmount) {
-        curveGaugeFactory.mint(address(curveGauge));
+        curveGauge.claim_rewards();
         rewardAmount = reward.balanceOf(address(this));
     }
 
@@ -105,8 +102,8 @@ contract CurveVault is ERC4626Compoundable, WithFees {
         /// -----------------------------------------------------------------------
         _asset.approve(address(curvePool), assets);
 
-        uint256[COINS] memory amounts;
-        amounts[_coinId] = assets;
+        uint256[] memory amounts = new uint256[](coins);
+        amounts[coinId] = assets;
 
         curvePool.add_liquidity(amounts, 0);
 
@@ -118,11 +115,14 @@ contract CurveVault is ERC4626Compoundable, WithFees {
         /// -----------------------------------------------------------------------
         /// Remove liquidity from Curve pool imbalance
         /// -----------------------------------------------------------------------
-        uint256 lpTokens = assets;
+        uint256[] memory amounts = new uint256[](coins);
+        amounts[coinId] = assets;
+        
+        uint256 lpTokens = curvePool.calc_token_amount(amounts, false);
 
         curveGauge.withdraw(lpTokens);
 
-        curvePool.remove_liquidity_one_coin(lpTokens, coinId, 0);
+        curvePool.remove_liquidity_one_coin(lpTokens, int128(int8(coinId)), 0);
     }
 
     /// -----------------------------------------------------------------------
