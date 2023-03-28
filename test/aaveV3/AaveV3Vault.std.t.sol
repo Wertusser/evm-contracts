@@ -12,6 +12,10 @@ import { AaveV3VaultFactory } from "../../src/providers/aaveV3/AaveV3VaultFactor
 import { IRewardsController } from
   "../../src/providers/aaveV3/external/IRewardsController.sol";
 
+import { ISwapper } from "../../src/periphery/Swapper.sol";
+import { FeesController } from "../../src/periphery/FeesController.sol";
+import {SwapperMock} from "../mocks/Swapper.m.sol";
+
 contract AaveV3VaultStdTest is ERC4626Test {
   address public constant rewardRecipient = address(0x01);
 
@@ -23,6 +27,8 @@ contract AaveV3VaultStdTest is ERC4626Test {
   PoolMock public lendingPool;
   AaveV3VaultFactory public factory;
   IRewardsController public rewardsController;
+  ISwapper public swapper;
+  FeesController public feesController;
 
   function setUp() public override {
     // copied from AaveV3Vault.t.sol
@@ -31,10 +37,16 @@ contract AaveV3VaultStdTest is ERC4626Test {
     underlying = new ERC20Mock();
     lendingPool = new PoolMock();
     rewardsController = new RewardsControllerMock(address(aave));
+
+    swapper = new SwapperMock(aave, underlying);
+    feesController = new FeesController();
+
     factory = new AaveV3VaultFactory(
+            aave,
             lendingPool,
-            rewardRecipient,
-            rewardsController
+            rewardsController,
+            swapper,
+            feesController
         );
     lendingPool.setReserveAToken(address(underlying), address(aToken));
     vault = AaveV3Vault(address(factory.createERC4626(underlying)));

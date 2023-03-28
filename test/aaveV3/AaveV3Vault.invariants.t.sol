@@ -10,6 +10,9 @@ import { RewardsControllerMock } from "./mocks/RewardsController.m.sol";
 import { AaveV3VaultFactory } from "../../src/providers/aaveV3/AaveV3VaultFactory.sol";
 import { IRewardsController } from
   "../../src/providers/aaveV3/external/IRewardsController.sol";
+import { ISwapper } from "../../src/periphery/Swapper.sol";
+import { FeesController } from "../../src/periphery/FeesController.sol";
+import { SwapperMock } from "../mocks/Swapper.m.sol";
 
 contract AaveV3VaultInvariants is ERC4626Invariants {
   ERC20Mock public aave;
@@ -19,6 +22,8 @@ contract AaveV3VaultInvariants is ERC4626Invariants {
   PoolMock public lendingPool;
   AaveV3VaultFactory public factory;
   IRewardsController public rewardsController;
+  ISwapper public swapper;
+  FeesController public feesController;
 
   function setUp() public {
     aave = new ERC20Mock();
@@ -26,10 +31,16 @@ contract AaveV3VaultInvariants is ERC4626Invariants {
     underlying = new ERC20Mock();
     lendingPool = new PoolMock();
     rewardsController = new RewardsControllerMock(address(aave));
+
+    swapper = new SwapperMock(aave, underlying);
+    feesController = new FeesController();
+
     factory = new AaveV3VaultFactory(
+            aave,
             lendingPool,
-            msg.sender,
-            rewardsController
+            rewardsController,
+            swapper,
+            feesController
         );
 
     lendingPool.setReserveAToken(address(underlying), address(aToken));
@@ -44,5 +55,7 @@ contract AaveV3VaultInvariants is ERC4626Invariants {
     excludeContract(address(underlying));
     excludeContract(address(lendingPool));
     excludeContract(address(rewardsController));
+    excludeContract(address(feesController));
+    excludeContract(address(swapper));
   }
 }
