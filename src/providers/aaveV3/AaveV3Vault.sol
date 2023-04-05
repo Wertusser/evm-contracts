@@ -65,7 +65,6 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
   )
     ERC4626Compoundable(
       asset_,
-      reward_,
       swapper_,
       keeper_,
       management_,
@@ -76,6 +75,10 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     aToken = aToken_;
     lendingPool = lendingPool_;
     rewardsController = rewardsController_;
+
+    // Approve to lending pool all tokens
+    aToken.approve(address(lendingPool), type(uint256).max);
+    _asset.approve(address(lendingPool), type(uint256).max);
   }
 
   /// -----------------------------------------------------------------------
@@ -103,12 +106,6 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     /// -----------------------------------------------------------------------
     /// Deposit assets into Aave
     /// -----------------------------------------------------------------------
-
-    // approve to lendingPool
-    _asset.approve(address(lendingPool), assets);
-
-    // deposit into lendingPool
-    // TODO: add refferal code
     lendingPool.supply(address(_asset), assets, address(this), 0);
   }
 
@@ -129,7 +126,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     // handle supply cap
     uint256 supplyCapInWholeTokens = _getSupplyCap(configData);
     if (supplyCapInWholeTokens == 0) {
-      return type(uint256).max;
+      return _asset.balanceOf(_msgSender());
     }
 
     uint8 tokenDecimals = _getDecimals(configData);
@@ -154,7 +151,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     // handle supply cap
     uint256 supplyCapInWholeTokens = _getSupplyCap(configData);
     if (supplyCapInWholeTokens == 0) {
-      return type(uint256).max;
+      return convertToShares(_asset.balanceOf(_msgSender()));
     }
 
     uint8 tokenDecimals = _getDecimals(configData);
@@ -240,7 +237,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     return (configData & ~SUPPLY_CAP_MASK) >> SUPPLY_CAP_START_BIT_POSITION;
   }
 
-  function _harvest()
+  function _harvest(IERC20 reward)
     internal
     virtual
     override

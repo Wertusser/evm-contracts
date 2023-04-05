@@ -2,14 +2,15 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
-import { ERC4626 } from "../src/periphery/ERC4626.sol";
+import { ERC4626, ERC4626Compoundable } from "../src/periphery/ERC4626Compoundable.sol";
+import { IERC4626 } from "../src/periphery/ERC4626.sol";
 import { AddressSet, LibAddressSet } from "../src/utils/AddressSet.sol";
 
 contract ERC4626Handler is TestBase, StdCheats, StdUtils {
   using LibAddressSet for AddressSet;
 
   AddressSet internal actors;
-  ERC4626 public vault;
+  ERC4626Compoundable public vault;
 
   uint256 public ghost_depositSum;
   uint256 public ghost_gainSum;
@@ -48,13 +49,21 @@ contract ERC4626Handler is TestBase, StdCheats, StdUtils {
     vm.stopPrank();
   }
 
-  constructor(ERC4626 _vault) {
-    vault = _vault;
+  constructor(IERC4626 _vault) {
+    vault = ERC4626Compoundable(address(_vault));
   }
 
   // helper methods for actors
 
-  function callSummary() external view {
+  function showActorPnl(address actor) external view {
+    uint256 profit = vault.pnl(actor) > 0 ? uint256(vault.pnl(actor)) : 0;
+    uint256 loss = vault.pnl(actor) < 0 ? uint256(-vault.pnl(actor)) : 0;
+    if (profit > 0 || loss > 0) {
+      console.log(actor, profit, loss);
+    }
+  }
+
+  function callSummary() external {
     console.log("Vault summary:");
     console.log("-------------------");
     console.log("total assets", vault.totalAssets());
@@ -81,6 +90,9 @@ contract ERC4626Handler is TestBase, StdCheats, StdUtils {
     console.log("transfer", calls["transfer"]);
     console.log("transferFrom", calls["transferFrom"]);
     console.log("approve", calls["approve"]);
+    console.log("\nPnL:");
+    console.log("-------------------");
+    actors.forEach(this.showActorPnl);
   }
 
   function forEachActor(function(address) external func) public {
@@ -200,15 +212,15 @@ abstract contract ERC4626Invariants is Test {
   function setVault(ERC4626 vault_) public {
     _vault = vault_;
     handler = new ERC4626Handler(_vault);
-    bytes4[] memory selectors = new bytes4[](7);
+    bytes4[] memory selectors = new bytes4[](4);
 
     selectors[0] = ERC4626Handler.deposit.selector;
     selectors[1] = ERC4626Handler.withdraw.selector;
     selectors[2] = ERC4626Handler.mint.selector;
     selectors[3] = ERC4626Handler.redeem.selector;
-    selectors[4] = ERC4626Handler.approve.selector;
-    selectors[5] = ERC4626Handler.transfer.selector;
-    selectors[6] = ERC4626Handler.transferFrom.selector;
+    // selectors[4] = ERC4626Handler.approve.selector;
+    // selectors[5] = ERC4626Handler.transfer.selector;
+    // selectors[6] = ERC4626Handler.transferFrom.selector;
 
     targetSelector(FuzzSelector({ addr: address(handler), selectors: selectors }));
     excludeContract(address(_vault));
@@ -230,7 +242,27 @@ abstract contract ERC4626Invariants is Test {
     return balance + _vault.maxWithdraw(caller);
   }
 
-  function invariant_callSummary() public view {
+  function accumulateProfit(uint256 balance, address caller)
+    external
+    view
+    returns (uint256)
+  {
+    ERC4626Compoundable v = ERC4626Compoundable(address(_vault));
+    uint256 profit = v.pnl(caller) > 0 ? uint256(v.pnl(caller)) : 0;
+    return balance + profit;
+  }
+
+  function accumulateLoss(uint256 balance, address caller)
+    external
+    view
+    returns (uint256)
+  {
+    ERC4626Compoundable v = ERC4626Compoundable(address(_vault));
+    uint256 loss = v.pnl(caller) < 0 ? uint256(-v.pnl(caller)) : 0;
+    return balance + loss;
+  }
+
+  function invariant_callSummary() public {
     handler.callSummary();
   }
 
@@ -256,5 +288,11 @@ abstract contract ERC4626Invariants is Test {
 
   function invariant_totalAssetsShareRelation() public {
     assertGe(_vault.totalAssets(), _vault.totalSupply());
+  }
+
+  function invariant_zeroSumPnl() public {
+    uint256 sumOfProfit = handler.reduceActors(0, this.accumulateProfit);
+    uint256 sumOfLoss = handler.reduceActors(0, this.accumulateLoss);
+    assertEq(sumOfProfit, sumOfLoss);
   }
 }

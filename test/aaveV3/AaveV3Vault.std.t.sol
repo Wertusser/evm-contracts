@@ -4,7 +4,7 @@ pragma solidity >=0.8.0 <0.9.0;
 import "erc4626-tests/ERC4626.test.sol";
 
 import { PoolMock } from "./mocks/Pool.m.sol";
-import { ERC20Mock } from "../mocks/ERC20.m.sol";
+import { ERC20Mock, WERC20Mock } from "../mocks/ERC20.m.sol";
 import { IPool } from "../../src/providers/aaveV3/external/IPool.sol";
 import { AaveV3Vault } from "../../src/providers/aaveV3/AaveV3Vault.sol";
 import { RewardsControllerMock } from "./mocks/RewardsController.m.sol";
@@ -21,7 +21,7 @@ contract AaveV3VaultStdTest is ERC4626Test {
 
   // copied from AaveV3Vault.t.sol
   ERC20Mock public aave;
-  ERC20Mock public aToken;
+  WERC20Mock public aToken;
   AaveV3Vault public vault;
   ERC20Mock public underlying;
   PoolMock public lendingPool;
@@ -33,8 +33,8 @@ contract AaveV3VaultStdTest is ERC4626Test {
   function setUp() public override {
     // copied from AaveV3Vault.t.sol
     aave = new ERC20Mock();
-    aToken = new ERC20Mock();
     underlying = new ERC20Mock();
+    aToken = new WERC20Mock(underlying);
     lendingPool = new PoolMock();
     rewardsController = new RewardsControllerMock(address(aave));
 
@@ -48,7 +48,7 @@ contract AaveV3VaultStdTest is ERC4626Test {
             swapper,
             feesController
         );
-    lendingPool.setReserveAToken(address(underlying), address(aToken));
+    lendingPool.setReserveAToken(address(underlying), aToken);
     vault = AaveV3Vault(address(factory.createERC4626(underlying)));
 
     // for ERC4626Test setup
