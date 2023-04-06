@@ -1,6 +1,6 @@
 pragma solidity ^0.8.13;
 
-import "../ERC4626.invariants.t.sol";
+import "../ERC4626Compoundable.invariants.t.sol";
 
 import { PoolMock } from "./mocks/Pool.m.sol";
 import { ERC20Mock, WERC20Mock } from "../mocks/ERC20.m.sol";
@@ -14,7 +14,7 @@ import { ISwapper } from "../../src/periphery/Swapper.sol";
 import { FeesController } from "../../src/periphery/FeesController.sol";
 import { SwapperMock } from "../mocks/Swapper.m.sol";
 
-contract AaveV3VaultInvariants is ERC4626Invariants {
+contract AaveV3VaultInvariants is ERC4626CompoundableInvariants {
   ERC20Mock public aave;
   WERC20Mock public aToken;
   AaveV3Vault public vault;
@@ -47,7 +47,7 @@ contract AaveV3VaultInvariants is ERC4626Invariants {
     underlying.mint(address(lendingPool), 10 ** 24);
 
     vault = AaveV3Vault(address(factory.createERC4626(underlying)));
-    setVault(vault);
+    setVault(vault, aave);
 
     excludeContract(address(factory));
     excludeContract(address(aave));

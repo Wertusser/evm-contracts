@@ -9,7 +9,6 @@ import "./Swapper.sol";
 interface IERC4626Compoundable {
   function setSwapper(ISwapper nextSwapper) external;
   function expectedReturns(uint256 timestamp) external view returns (uint256);
-  function pnl(address user) external view returns (int256);
 
   function harvest(IERC20 reward, uint256 swapAmountOut) external returns (uint256);
   function tend() external returns (uint256);
@@ -28,8 +27,7 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
 
   bytes32 public constant KEEPER_ROLE = keccak256("KEEPER_ROLE");
 
-  mapping(address => uint256) public depositOf;
-  mapping(address => uint256) public withdrawOf;
+
 
   event Harvest(address indexed executor, uint256 amountReward, uint256 amountWant);
   event Tend(address indexed executor, uint256 amountWant, uint256 amountShares);
@@ -37,16 +35,11 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
 
   constructor(
     IERC20 asset_,
-    ISwapper swapper_,
-    address keeper_,
-    address management_,
-    address emergency_
-  ) ERC4626Controllable(asset_, management_, emergency_) {
+    ISwapper swapper_
+  ) ERC4626Controllable(asset_) {
     swapper = swapper_;
     createdAt = block.timestamp;
     compoundAt = block.timestamp;
-
-    _grantRole(KEEPER_ROLE, keeper_);
   }
 
   function setSwapper(ISwapper nextSwapper) public onlyRole(MANAGEMENT_ROLE) {
@@ -66,13 +59,6 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
     } else {
       return 0;
     }
-  }
-
-  function pnl(address user) public view returns (int256) {
-    uint256 totalDeposited = depositOf[user];
-    uint256 totalWithdraw = withdrawOf[user] + this.maxWithdraw(user);
-
-    return int256(totalWithdraw) - int256(totalDeposited);
   }
 
   function harvest(IERC20 reward, uint256 swapAmountOut)
@@ -99,44 +85,6 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
     compoundAt = block.timestamp;
 
     emit Tend(msg.sender, wantAmount, sharesAdded);
-  }
-
-  /**
-   * @dev Deposit/mint common workflow.
-   */
-  function _deposit(address caller, address receiver, uint256 assets, uint256 shares)
-    internal
-    virtual
-    override
-  {
-    _asset.transferFrom(caller, address(this), assets);
-    _mint(receiver, shares);
-
-    depositOf[receiver] += assets;
-
-    emit Deposit(caller, receiver, assets, shares);
-  }
-
-  /**
-   * @dev Withdraw/redeem common workflow.
-   */
-  function _withdraw(
-    address caller,
-    address receiver,
-    address owner,
-    uint256 assets,
-    uint256 shares
-  ) internal virtual override {
-    if (caller != owner) {
-      _spendAllowance(owner, caller, shares);
-    }
-
-    _burn(owner, shares);
-    _asset.transfer(receiver, assets);
-
-    withdrawOf[receiver] += assets;
-
-    emit Withdraw(caller, receiver, owner, assets, shares);
   }
 
   function _harvest(IERC20 reward) internal virtual returns (uint256 rewardAmount);

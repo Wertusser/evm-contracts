@@ -62,16 +62,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     address keeper_,
     address management_,
     address emergency_
-  )
-    ERC4626Compoundable(
-      asset_,
-      swapper_,
-      keeper_,
-      management_,
-      emergency_
-    )
-    WithFees(feesController_)
-  {
+  ) ERC4626Compoundable(asset_, swapper_) WithFees(feesController_)  {
     aToken = aToken_;
     lendingPool = lendingPool_;
     rewardsController = rewardsController_;
@@ -89,20 +80,19 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     return aToken.balanceOf(address(this));
   }
 
-  function beforeWithdraw(
-    uint256 assets,
-    uint256 /*shares*/
-  ) internal virtual override returns (uint256) {
+  function beforeWithdraw(uint256 assets, uint256 /*shares*/ )
+    internal
+    virtual
+    override
+    returns (uint256)
+  {
     /// -----------------------------------------------------------------------
     /// Withdraw assets from Aave
     /// -----------------------------------------------------------------------
     return lendingPool.withdraw(address(_asset), assets, address(this));
   }
 
-  function afterDeposit(
-    uint256 assets,
-    uint256 /*shares*/
-  ) internal virtual override {
+  function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal virtual override {
     /// -----------------------------------------------------------------------
     /// Deposit assets into Aave
     /// -----------------------------------------------------------------------
@@ -111,15 +101,8 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
 
   function maxDeposit(address owner) public view virtual override returns (uint256) {
     // check if asset is paused
-    uint256 configData = lendingPool
-      .getReserveData(address(_asset))
-      .configuration
-      .data;
-    if (
-      !(_getActive(configData) &&
-        !_getFrozen(configData) &&
-        !_getPaused(configData))
-    ) {
+    uint256 configData = lendingPool.getReserveData(address(_asset)).configuration.data;
+    if (!(_getActive(configData) && !_getFrozen(configData) && !_getPaused(configData))) {
       return 0;
     }
 
@@ -136,15 +119,8 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
 
   function maxMint(address owner) public view virtual override returns (uint256) {
     // check if asset is paused
-    uint256 configData = lendingPool
-      .getReserveData(address(_asset))
-      .configuration
-      .data;
-    if (
-      !(_getActive(configData) &&
-        !_getFrozen(configData) &&
-        !_getPaused(configData))
-    ) {
+    uint256 configData = lendingPool.getReserveData(address(_asset)).configuration.data;
+    if (!(_getActive(configData) && !_getFrozen(configData) && !_getPaused(configData))) {
       return 0;
     }
 
@@ -159,14 +135,9 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     return convertToShares(supplyCap - aToken.totalSupply());
   }
 
-  function maxWithdraw(
-    address owner
-  ) public view virtual override returns (uint256) {
+  function maxWithdraw(address owner) public view virtual override returns (uint256) {
     // check if asset is paused
-    uint256 configData = lendingPool
-      .getReserveData(address(_asset))
-      .configuration
-      .data;
+    uint256 configData = lendingPool.getReserveData(address(_asset)).configuration.data;
     if (!(_getActive(configData) && !_getPaused(configData))) {
       return 0;
     }
@@ -176,14 +147,9 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     return cash < assetsBalance ? cash : assetsBalance;
   }
 
-  function maxRedeem(
-    address owner
-  ) public view virtual override returns (uint256) {
+  function maxRedeem(address owner) public view virtual override returns (uint256) {
     // check if asset is paused
-    uint256 configData = lendingPool
-      .getReserveData(address(_asset))
-      .configuration
-      .data;
+    uint256 configData = lendingPool.getReserveData(address(_asset)).configuration.data;
     if (!(_getActive(configData) && !_getPaused(configData))) {
       return 0;
     }
@@ -198,16 +164,22 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
   /// ERC20 metadata generation
   /// -----------------------------------------------------------------------
 
-  function _vaultName(
-    IERC20 asset_
-  ) internal view override returns (string memory vaultName) {
-    vaultName = string.concat('Yasp Aave v3 Vault', asset_.symbol());
+  function _vaultName(IERC20 asset_)
+    internal
+    view
+    override
+    returns (string memory vaultName)
+  {
+    vaultName = string.concat("Yasp Aave v3 Vault", asset_.symbol());
   }
 
-  function _vaultSymbol(
-    IERC20 asset_
-  ) internal view override returns (string memory vaultSymbol) {
-    vaultSymbol = string.concat('yav3', asset_.symbol());
+  function _vaultSymbol(IERC20 asset_)
+    internal
+    view
+    override
+    returns (string memory vaultSymbol)
+  {
+    vaultSymbol = string.concat("yav3", asset_.symbol());
   }
 
   /// -----------------------------------------------------------------------
@@ -215,10 +187,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
   /// -----------------------------------------------------------------------
 
   function _getDecimals(uint256 configData) internal pure returns (uint8) {
-    return
-      uint8(
-        (configData & ~DECIMALS_MASK) >> RESERVE_DECIMALS_START_BIT_POSITION
-      );
+    return uint8((configData & ~DECIMALS_MASK) >> RESERVE_DECIMALS_START_BIT_POSITION);
   }
 
   function _getActive(uint256 configData) internal pure returns (bool) {
@@ -242,12 +211,12 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     virtual
     override
     returns (uint256 rewardAmount)
-  {}
+  { }
 
   function _tend()
     internal
     virtual
     override
     returns (uint256 wantAmount, uint256 sharesAdded)
-  {}
+  { }
 }
