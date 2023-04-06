@@ -3,9 +3,19 @@ pragma solidity ^0.8.13;
 
 import "forge-std/interfaces/IERC20.sol";
 import "./ERC4626Controllable.sol";
+import { IERC4626 } from "./ERC4626.sol";
 import "./Swapper.sol";
 
-abstract contract ERC4626Compoundable is ERC4626Controllable {
+interface IERC4626Compoundable {
+  function setSwapper(ISwapper nextSwapper) external;
+  function expectedReturns(uint256 timestamp) external view returns (uint256);
+  function pnl(address user) external view returns (int256);
+
+  function harvest(IERC20 reward, uint256 swapAmountOut) external returns (uint256);
+  function tend() external returns (uint256);
+}
+
+abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllable {
   /// @notice Swapper contract
   ISwapper public swapper;
 
@@ -21,6 +31,10 @@ abstract contract ERC4626Compoundable is ERC4626Controllable {
   mapping(address => uint256) public depositOf;
   mapping(address => uint256) public withdrawOf;
 
+  event Harvest(address indexed executor, uint256 amountReward, uint256 amountWant);
+  event Tend(address indexed executor, uint256 amountWant, uint256 amountShares);
+  event SwapperUpdated(address newSwapper);
+
   constructor(
     IERC20 asset_,
     ISwapper swapper_,
@@ -34,11 +48,6 @@ abstract contract ERC4626Compoundable is ERC4626Controllable {
 
     _grantRole(KEEPER_ROLE, keeper_);
   }
-
-  event Harvest(address indexed executor, uint256 amountReward, uint256 amountWant);
-  event Tend(address indexed executor, uint256 amountWant, uint256 amountShares);
-  event KeeperUpdated(address newKeeper);
-  event SwapperUpdated(address newSwapper);
 
   function setSwapper(ISwapper nextSwapper) public onlyRole(MANAGEMENT_ROLE) {
     swapper = nextSwapper;

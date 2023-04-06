@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "forge-std/interfaces/IERC20.sol";
-import {ERC4626} from "./ERC4626.sol";
+import {ERC4626, IERC4626} from "./ERC4626.sol";
 import "./Swapper.sol";
 
 abstract contract ERC4626Controllable is ERC4626, AccessControl, Pausable {

@@ -76,12 +76,12 @@ contract CurveVault is ERC4626Compoundable, WithFees {
     _zapLiquidity(assets);
   }
 
-  function maxDeposit(address) public view virtual override returns (uint256) {
-    return !curvePool.is_killed() ? type(uint256).max : 0;
+  function maxDeposit(address owner) public view virtual override returns (uint256) {
+    return !curvePool.is_killed() ? _asset.balanceOf(owner) : 0;
   }
 
-  function maxMint(address) public view virtual override returns (uint256) {
-    return !curvePool.is_killed() ? type(uint256).max : 0;
+  function maxMint(address owner) public view virtual override returns (uint256) {
+    return !curvePool.is_killed() ? convertToShares(_asset.balanceOf(owner)) : 0;
   }
 
   function maxWithdraw(address owner) public view virtual override returns (uint256) {

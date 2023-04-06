@@ -109,7 +109,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     lendingPool.supply(address(_asset), assets, address(this), 0);
   }
 
-  function maxDeposit(address) public view virtual override returns (uint256) {
+  function maxDeposit(address owner) public view virtual override returns (uint256) {
     // check if asset is paused
     uint256 configData = lendingPool
       .getReserveData(address(_asset))
@@ -126,7 +126,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     // handle supply cap
     uint256 supplyCapInWholeTokens = _getSupplyCap(configData);
     if (supplyCapInWholeTokens == 0) {
-      return _asset.balanceOf(_msgSender());
+      return _asset.balanceOf(owner);
     }
 
     uint8 tokenDecimals = _getDecimals(configData);
@@ -134,7 +134,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     return supplyCap - aToken.totalSupply();
   }
 
-  function maxMint(address) public view virtual override returns (uint256) {
+  function maxMint(address owner) public view virtual override returns (uint256) {
     // check if asset is paused
     uint256 configData = lendingPool
       .getReserveData(address(_asset))
@@ -151,7 +151,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     // handle supply cap
     uint256 supplyCapInWholeTokens = _getSupplyCap(configData);
     if (supplyCapInWholeTokens == 0) {
-      return convertToShares(_asset.balanceOf(_msgSender()));
+      return convertToShares(_asset.balanceOf(owner));
     }
 
     uint8 tokenDecimals = _getDecimals(configData);

@@ -132,28 +132,28 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     stargateLPStaking.deposit(poolStakingId, lpTokens);
   }
 
-  function maxDeposit(address) public view override returns (uint256) {
-    return paused() ? 0 : type(uint256).max;
+  function maxDeposit(address owner) public view override returns (uint256) {
+    return paused() ? 0 : _asset.balanceOf(owner);
   }
 
-  function maxMint(address) public view override returns (uint256) {
-    return paused() ? 0 : type(uint256).max;
+  function maxMint(address owner) public view override returns (uint256) {
+    return paused() ? 0 : convertToShares(_asset.balanceOf(owner));
   }
 
-  function maxWithdraw(address account) public view override returns (uint256) {
+  function maxWithdraw(address owner) public view override returns (uint256) {
     uint256 cash = _asset.balanceOf(address(stargatePool));
 
-    uint256 assetsBalance = convertToAssets(this.balanceOf(account));
+    uint256 assetsBalance = convertToAssets(this.balanceOf(owner));
 
     return cash < assetsBalance ? cash : assetsBalance;
   }
 
-  function maxRedeem(address account) public view override returns (uint256) {
+  function maxRedeem(address owner) public view override returns (uint256) {
     uint256 cash = _asset.balanceOf(address(stargatePool));
 
     uint256 cashInShares = convertToShares(cash);
 
-    uint256 shareBalance = this.balanceOf(account);
+    uint256 shareBalance = this.balanceOf(owner);
 
     return cashInShares < shareBalance ? cashInShares : shareBalance;
   }
