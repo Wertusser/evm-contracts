@@ -30,7 +30,7 @@ contract CurveVaultStdTest is ERC4626Test {
     gauge = new CurveGaugeMock(reward, lpToken);
 
     swapper = new SwapperMock(reward, underlying);
-    feesController = new FeesController();
+    feesController = new FeesController(msg.sender);
 
     vault = new CurveVault(
         IIERC20(underlying),
@@ -40,7 +40,7 @@ contract CurveVaultStdTest is ERC4626Test {
         0,
         2,
         swapper,
-        feesController,
+        address(feesController),
         msg.sender,
         msg.sender,
         msg.sender

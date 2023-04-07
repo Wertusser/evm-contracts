@@ -34,7 +34,8 @@ contract StargateVaultInvariants is ERC4626Invariants {
     stakingMock = new StargateLPStakingMock(lpToken, reward);
 
     swapper = new SwapperMock(reward, underlying);
-    feesController = new FeesController();
+    feesController = new FeesController(address(0xdeaddead));
+
 
     vault = new StargateVault(
           IIERC20(address(underlying)),
@@ -45,7 +46,7 @@ contract StargateVaultInvariants is ERC4626Invariants {
           IIERC20(address(lpToken)),
           IIERC20(address(reward)),
           swapper,
-          feesController,
+          address(feesController),
           address(0xdeaddead),
           address(0xdeaddead),
           address(0xdeaddead)

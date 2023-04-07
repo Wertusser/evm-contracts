@@ -2,50 +2,48 @@
 pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 import "forge-std/interfaces/IERC20.sol";
 import { ERC4626, IERC4626 } from "./ERC4626.sol";
 import "./Swapper.sol";
 
-abstract contract ERC4626Controllable is ERC4626, AccessControl, Pausable {
+abstract contract ERC4626Controllable is ERC4626, AccessControl {
   bytes32 public constant MANAGEMENT_ROLE = keccak256("MANAGEMENT_ROLE");
   bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
   bool public canDeposit;
+  address public admin;
 
   mapping(address => uint256) public depositOf;
   mapping(address => uint256) public withdrawOf;
 
-  event Paused();
-  event Live();
+  constructor(IERC20 asset_, address admin_) ERC4626(asset_) AccessControl() {
+    _setupRole(DEFAULT_ADMIN_ROLE, admin_);
+    _setupRole(MANAGEMENT_ROLE, admin_);
+    _setupRole(EMERGENCY_ROLE, admin_);
 
-  constructor(IERC20 asset_) ERC4626(asset_) AccessControl() {
     canDeposit = true;
   }
 
   function toggle() public onlyRole(EMERGENCY_ROLE) {
     canDeposit = !canDeposit;
-    if (canDeposit) {
-      emit Live();
+  }
+
+  function setRole(bytes32 role, address account, bool remove) internal {
+    if (remove) {
+      revokeRole(role, account);
     } else {
-      emit Paused();
+      grantRole(role, account);
     }
   }
 
-  function addManager(address manager) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    grantRole(MANAGEMENT_ROLE, manager);
+  function setManager(address manager, bool remove) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    setRole(MANAGEMENT_ROLE, manager, remove);
   }
 
-  function removeManager(address manager) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    revokeRole(MANAGEMENT_ROLE, manager);
+  function setEmergency(address manager, bool remove) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    setRole(EMERGENCY_ROLE, manager, remove);
   }
 
-  function addEmergency(address emergency) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    grantRole(EMERGENCY_ROLE, emergency);
-  }
-
-  function removeEmergency(address emergency) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    revokeRole(EMERGENCY_ROLE, emergency);
-  }
+  /////////////////
 
   function pnl(address user) public view returns (int256) {
     uint256 totalDeposited = depositOf[user];

@@ -39,7 +39,7 @@ contract AaveV3VaultStdTest is ERC4626Test {
     rewardsController = new RewardsControllerMock(address(aave));
 
     swapper = new SwapperMock(aave, underlying);
-    feesController = new FeesController();
+    feesController = new FeesController(msg.sender);
 
     factory = new AaveV3VaultFactory(
             aave,

@@ -17,7 +17,6 @@ interface IERC4626Compoundable {
 abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllable {
   /// @notice Swapper contract
   ISwapper public swapper;
-
   ///@notice total earned amount. Value changes after every tend() call
   uint256 public totalEarned;
   ///@notice block timestamp of last tend() call
@@ -35,11 +34,16 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
 
   constructor(
     IERC20 asset_,
-    ISwapper swapper_
-  ) ERC4626Controllable(asset_) {
+    ISwapper swapper_,
+    address admin_
+  ) ERC4626Controllable(asset_, admin_) {
     swapper = swapper_;
     createdAt = block.timestamp;
     compoundAt = block.timestamp;
+  }
+
+  function setKeeper(address account, bool remove) public onlyRole(MANAGEMENT_ROLE) {
+    setRole(KEEPER_ROLE, account, remove);
   }
 
   function setSwapper(ISwapper nextSwapper) public onlyRole(MANAGEMENT_ROLE) {

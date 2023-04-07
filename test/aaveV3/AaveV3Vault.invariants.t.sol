@@ -33,7 +33,7 @@ contract AaveV3VaultInvariants is ERC4626CompoundableInvariants {
     rewardsController = new RewardsControllerMock(address(aave));
     
     swapper = new SwapperMock(aave, underlying);
-    feesController = new FeesController();
+    feesController = new FeesController(msg.sender);
 
     factory = new AaveV3VaultFactory(
             aave,
@@ -48,6 +48,9 @@ contract AaveV3VaultInvariants is ERC4626CompoundableInvariants {
 
     vault = AaveV3Vault(address(factory.createERC4626(underlying)));
     setVault(vault, aave);
+
+    vault.setManager(factory.admin(), false);
+    vault.setKeeper(KEEPER_ADDRESS_MOCK, false);
 
     excludeContract(address(factory));
     excludeContract(address(aave));

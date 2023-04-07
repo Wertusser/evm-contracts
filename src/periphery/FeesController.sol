@@ -3,117 +3,105 @@ pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "forge-std/interfaces/IERC20.sol";
-import {IERC4626} from "./ERC4626.sol";
+import { IERC4626 } from "./ERC4626.sol";
 
+contract WithFees {
+  FeesController private controller;
 
-contract WithFees is Ownable {
-    /// @notice fees controller
-    FeesController public feesController;
+  constructor(address feeController) {
+    controller = FeesController(feeController);
+  }
 
-    event FeesControllerUpdated(address feesController);
+  function feesController() public view returns (address) {
+    return address(controller);
+  }
 
-    constructor(FeesController feesController_) {
-        feesController = feesController_;
-    }
-
-    function setFeesController(address nextFeesController) public onlyOwner {
-        require(nextFeesController != address(0), "Zero address");
-        feesController = FeesController(nextFeesController);
-        emit FeesControllerUpdated(nextFeesController);
-    }
+  function payFees(uint256 amount, string memory feeType)
+    public
+    returns (uint256 feesAmount, uint256 restAmount)
+  {
+    return controller.collectFee(amount, feeType);
+  }
 }
 
 contract FeesController is Ownable {
-    uint24 constant MAX_BPS = 10000;
-    uint24 constant MAX_FEE_BPS = 2500;
+  uint24 constant MAX_BPS = 10000; // 100
+  uint24 constant MAX_FEE_BPS = 2500; // 25%
 
-    struct FeeConfig {
-        bool enabled;
-        uint24 depositFeeBps;
-        uint24 withdrawFeeBps;
-        uint24 harvestFeeBps;
+  // vault address => amount
+  mapping(address => uint256) public feesCollected;
+  // vault address => treasury => amount
+  mapping(address => mapping(address => uint256)) public feesCollectedByTreasuries;
+  // vault address => type => bps
+  mapping(address => mapping(string => uint24)) public feesConfig;
+  // vault address => treasury address, if address(0) then use fallback treasury
+  mapping(address => address) internal _treasuries;
+
+  address public fallbackTreasury;
+
+  event TreasuryUpdated(address nextTreasury);
+  event FallbackTreasuryUpdated(address nextTreasury);
+  event FeesUpdated(address indexed vault, string feeType, uint24 value);
+  event FeesCollected(
+    address indexed vault, string feeType, uint256 feeAmount, address asset
+  );
+
+  constructor(address fallbackTreasury_) Ownable() {
+    fallbackTreasury = fallbackTreasury_;
+  }
+
+  function treasury(address vault) public view returns (address) {
+    address result = _treasuries[vault];
+    return result != address(0) ? result : fallbackTreasury;
+  }
+
+  function setFallbackTreasury(address nextTreasury) external onlyOwner {
+    fallbackTreasury = nextTreasury;
+
+    emit FallbackTreasuryUpdated(nextTreasury);
+  }
+
+  function setTreasury(address vault, address nextTreasury) external onlyOwner {
+    _treasuries[vault] = nextTreasury;
+
+    emit TreasuryUpdated(nextTreasury);
+  }
+
+  function setFee(address vault, string memory feeType, uint24 value) external onlyOwner {
+    require(value <= MAX_FEE_BPS, "Fee overflow, max 25%");
+    feesConfig[vault][feeType] = value;
+
+    emit FeesUpdated(vault, feeType, value);
+  }
+
+  function collectFee(uint256 amount, string memory feeType)
+    external
+    returns (uint256 feesAmount, uint256 restAmount)
+  {
+    if (amount > 0 && feesConfig[msg.sender][feeType] > 0) {
+      return _collectFee(msg.sender, amount, feeType);
+    } else {
+      return (0, amount);
     }
+  }
 
-    FeeConfig public defaultConfig;
-    address public treasury;
+  function _collectFee(address vault, uint256 amount, string memory feeType)
+    internal
+    returns (uint256 feesAmount, uint256 restAmount)
+  {
+    address asset = IERC4626(vault).asset();
 
-    mapping(address => FeeConfig) public configs;
-    mapping(address => uint256) public feesCollected;
+    uint24 bps = feesConfig[vault][feeType];
+    feesAmount = amount * bps / MAX_BPS;
 
-    event DefaultConfigUpdated(FeeConfig newConfig);
-    event ConfigUpdated(address indexed vault, FeeConfig newConfig);
-    event FeesCollected(address indexed vault, uint256 feeAmount, address asset);
-    event TreasuryUpdated(address prevTreasury, address nextTreasury);
+    address treasury_ = treasury(vault);
+    IERC20(asset).transferFrom(vault, treasury_, feesAmount);
 
-    constructor() Ownable() {}
+    feesCollected[vault] += feesAmount;
+    feesCollectedByTreasuries[vault][treasury_] += feesAmount;
 
-    function setTreasury(address nextTreasury) external onlyOwner {
-        address prevTreasury = treasury;
-        treasury = nextTreasury;
+    restAmount = amount - feesAmount;
 
-        emit TreasuryUpdated(prevTreasury, nextTreasury);
-    }
-
-    function setDefaultConfig(FeeConfig memory config) external onlyOwner {
-        _validateConfig(config);
-        defaultConfig = config;
-
-        emit DefaultConfigUpdated(config);
-    }
-
-    function setCustomConfig(address vault, FeeConfig memory config) external onlyOwner {
-        _validateConfig(config);
-        configs[vault] = config;
-
-        emit ConfigUpdated(vault, config);
-    }
-
-    function onDeposit(uint256 amount) external returns (uint256 feesAmount) {
-        FeeConfig memory config = configs[msg.sender];
-
-        if (!config.enabled) {
-            config = defaultConfig;
-        }
-
-        feesAmount = _collectFees(msg.sender, amount, config.depositFeeBps);
-    }
-
-    function onWithdraw(uint256 amount) external returns (uint256 feesAmount) {
-        FeeConfig memory config = configs[msg.sender];
-
-        if (!config.enabled) {
-            config = defaultConfig;
-        }
-
-        feesAmount = _collectFees(msg.sender, amount, config.withdrawFeeBps);
-    }
-
-    function onHarvest(uint256 amount) external returns (uint256 feesAmount) {
-        FeeConfig memory config = configs[msg.sender];
-
-        if (!config.enabled) {
-            config = defaultConfig;
-        }
-
-        feesAmount = _collectFees(msg.sender, amount, config.harvestFeeBps);
-    }
-
-    function _collectFees(address vault, uint256 amount, uint24 bps) internal returns (uint256 feesAmount) {
-        address asset = IERC4626(vault).asset();
-        feesAmount = amount * bps / MAX_BPS;
-
-        if (feesAmount > 0) {
-            IERC20(asset).transferFrom(vault, treasury, feesAmount);
-            feesCollected[vault] += feesAmount;
-
-            emit FeesCollected(vault, feesAmount, asset);
-        }
-    }
-
-    function _validateConfig(FeeConfig memory config) internal pure returns (bool) {
-        require(config.depositFeeBps <= MAX_FEE_BPS, "Invalid deposit fee");
-        require(config.withdrawFeeBps <= MAX_FEE_BPS, "Invalid withdraw fee");
-        require(config.harvestFeeBps <= MAX_FEE_BPS, "Invalid harvest fee");
-        return true;
-    }
+    emit FeesCollected(vault, feeType, feesAmount, asset);
+  }
 }

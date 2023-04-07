@@ -86,7 +86,7 @@ abstract contract ERC4626CompoundableInvariants is Test {
   function setVault(IERC4626 vault_, IERC20 reward) public {
     _vault = vault_;
     handler = new ERC4626CompoundableHandler(_vault, reward, KEEPER_ADDRESS_MOCK);
-    bytes4[] memory selectors = new bytes4[](7);
+    bytes4[] memory selectors = new bytes4[](9);
 
     selectors[0] = ERC4626Handler.deposit.selector;
     selectors[1] = ERC4626Handler.withdraw.selector;
@@ -95,8 +95,8 @@ abstract contract ERC4626CompoundableInvariants is Test {
     selectors[4] = ERC4626Handler.approve.selector;
     selectors[5] = ERC4626Handler.transfer.selector;
     selectors[6] = ERC4626Handler.transferFrom.selector;
-    // selectors[0] = ERC4626CompoundableHandler.harvest.selector;
-    // selectors[1] = ERC4626CompoundableHandler.tend.selector;
+    selectors[7] = ERC4626CompoundableHandler.harvest.selector;
+    selectors[8] = ERC4626CompoundableHandler.tend.selector;
 
     targetSelector(FuzzSelector({ addr: address(handler), selectors: selectors }));
     excludeContract(address(_vault));

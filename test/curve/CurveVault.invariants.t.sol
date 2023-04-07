@@ -28,7 +28,7 @@ contract CurveVaultInvariants is ERC4626Invariants {
     gauge = new CurveGaugeMock(reward, lpToken);
 
     swapper = new SwapperMock(reward, underlying);
-    feesController = new FeesController();
+    feesController = new FeesController(msg.sender);
 
     vault = new CurveVault(
         IERC20(underlying),
@@ -38,7 +38,7 @@ contract CurveVaultInvariants is ERC4626Invariants {
         0,
         2,
         swapper,
-        feesController,
+        address(feesController),
         msg.sender,
         msg.sender,
         msg.sender

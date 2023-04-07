@@ -37,14 +37,11 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     IERC20 lpToken_,
     IERC20 reward_,
     ISwapper swapper_,
-    FeesController feesController_,
-    address keeper_,
+    address feesController_,
+    address owner_,
     address management_,
     address emergency_
-  )
-    ERC4626Compoundable(asset_, swapper_)
-    WithFees(feesController_)
-  {
+  ) ERC4626Compoundable(asset_, swapper_, owner_) WithFees(feesController_) {
     stargatePool = pool_;
     stargateRouter = router_;
     stargateLPStaking = staking_;
@@ -70,8 +67,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
 
   function _tend() internal override returns (uint256 wantAmount, uint256 sharesAdded) {
     uint256 assets = _asset.balanceOf(address(this));
-    uint256 feesAmount = feesController.onHarvest(assets);
-    wantAmount = assets - feesAmount;
+    (, wantAmount) = payFees(assets, "harvest");
 
     sharesAdded = this.convertToShares(assets);
 
@@ -91,8 +87,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     /// -----------------------------------------------------------------------
     /// Withdraw assets from Stargate
     /// -----------------------------------------------------------------------
-    uint256 feesAmount = feesController.onWithdraw(assets);
-    uint256 wantAmount = assets - feesAmount;
+    (, uint256 wantAmount) = payFees(assets, "withdraw");
 
     uint256 lpTokens = getStargateLP(wantAmount);
 
@@ -105,17 +100,11 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     );
   }
 
-  function afterDeposit(uint256 assets, uint256 /*shares*/ )
-    internal
-    virtual
-    override
-    whenNotPaused
-  {
+  function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal virtual override {
     /// -----------------------------------------------------------------------
     /// Deposit assets into Stargate
     /// -----------------------------------------------------------------------
-    uint256 feesAmount = feesController.onDeposit(assets);
-    uint256 wantAmount = assets - feesAmount;
+    (, uint256 wantAmount) = payFees(assets, "deposit");
 
     _asset.approve(address(stargateRouter), wantAmount);
 
@@ -133,11 +122,11 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   }
 
   function maxDeposit(address owner) public view override returns (uint256) {
-    return paused() ? 0 : _asset.balanceOf(owner);
+    return canDeposit ? _asset.balanceOf(owner) : 0;
   }
 
   function maxMint(address owner) public view override returns (uint256) {
-    return paused() ? 0 : convertToShares(_asset.balanceOf(owner));
+    return canDeposit ? convertToShares(_asset.balanceOf(owner)) : 0;
   }
 
   function maxWithdraw(address owner) public view override returns (uint256) {

@@ -41,7 +41,7 @@ contract StargateVaultStdTest is ERC4626Test {
     stakingMock = new StargateLPStakingMock(lpToken, reward);
 
     swapper = new SwapperMock(reward, underlying);
-    feesController = new FeesController();
+    feesController = new FeesController(owner);
 
     vault = new StargateVault(
           IIERC20(address(underlying)),
@@ -52,7 +52,7 @@ contract StargateVaultStdTest is ERC4626Test {
           IIERC20(address(lpToken)),
           IIERC20(address(reward)),
           swapper,
-          feesController,
+          address(feesController),
           owner,
           owner,
           owner

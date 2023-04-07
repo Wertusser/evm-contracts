@@ -77,7 +77,7 @@ contract AaveV3VaultFactory is ERC4626Factory {
       rewardsController,
       reward,
       swapper,
-      feesController,
+      address(feesController),
       admin,
       admin,
       admin
@@ -110,7 +110,7 @@ contract AaveV3VaultFactory is ERC4626Factory {
               rewardsController,
               reward,
               swapper,
-              feesController,
+              address(feesController),
               admin,
               admin,
               admin

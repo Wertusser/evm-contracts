@@ -13,7 +13,7 @@ contract DeployScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         console2.log('broadcaster', vm.addr(deployerPrivateKey));
-        deployed = new FeesController();
+        deployed = new FeesController(address(0));
         ///0xeEbbcEbCFD58F1ac20E54EcED2cDeAEa0c27FD1d
 
         vm.stopBroadcast();

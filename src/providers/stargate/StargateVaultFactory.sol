@@ -98,7 +98,7 @@ contract StargateVaultFactory is ERC4626Factory {
           lpToken,
           reward,
           swapper,
-          feesController,
+          address(feesController),
           admin,
           admin,
           admin
@@ -140,7 +140,7 @@ contract StargateVaultFactory is ERC4626Factory {
               lpToken,
               reward,
               swapper,
-              feesController,
+              address(feesController),
               admin,
               admin,
               admin

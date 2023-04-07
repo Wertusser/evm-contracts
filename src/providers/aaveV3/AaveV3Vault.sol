@@ -58,11 +58,11 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     IRewardsController rewardsController_,
     IERC20 reward_,
     ISwapper swapper_,
-    FeesController feesController_,
-    address keeper_,
+    address feesController_,
+    address owner_,
     address management_,
     address emergency_
-  ) ERC4626Compoundable(asset_, swapper_) WithFees(feesController_)  {
+  ) ERC4626Compoundable(asset_, swapper_, owner_) WithFees(feesController_)  {
     aToken = aToken_;
     lendingPool = lendingPool_;
     rewardsController = rewardsController_;

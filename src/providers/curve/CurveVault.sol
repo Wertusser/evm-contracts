@@ -28,12 +28,12 @@ contract CurveVault is ERC4626Compoundable, WithFees {
     uint8 coinId_,
     uint8 coins_,
     ISwapper swapper_,
-    FeesController feesController_,
-    address keeper,
+    address feesController_,
+    address owner_,
     address management,
     address emergency
   )
-    ERC4626Compoundable(asset_, swapper_)
+    ERC4626Compoundable(asset_, swapper_, owner_)
     WithFees(feesController_)
   {
     curvePool = pool_;
