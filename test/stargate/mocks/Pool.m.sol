@@ -2,16 +2,17 @@
 pragma solidity ^0.8.4;
 
 import { IStargatePool } from "../../../src/providers/stargate/external/IStargatePool.sol";
-import { ERC20Mock } from "../../mocks/ERC20.m.sol";
+import { LpPoolMock } from "../../mocks/LpPool.m.sol";
 import "forge-std/console2.sol";
+import "../../mocks/ERC20.m.sol";
 
-contract StargatePoolMock is IStargatePool {
+contract StargatePoolMock is IStargatePool, LpPoolMock {
   uint256 public poolId;
 
   ERC20Mock public lpToken;
   ERC20Mock public underlying;
 
-  constructor(uint256 poolId_, ERC20Mock underlying_, ERC20Mock lpToken_) {
+  constructor(uint256 poolId_, ERC20Mock underlying_, ERC20Mock lpToken_) LpPoolMock(underlying_) {
     poolId = poolId_;
     lpToken = lpToken_;
     underlying = underlying_;
@@ -21,8 +22,9 @@ contract StargatePoolMock is IStargatePool {
     return address(underlying);
   }
 
-  function totalSupply() public view returns (uint256) {
-    return lpToken.totalSupply();
+/// TODO: WTF
+  function totalSupply() public view override(ERC20, IERC20, IStargatePool) returns (uint256) {
+    return this.totalSupply();
   }
 
   function totalLiquidity() public view returns (uint256) {
@@ -34,29 +36,18 @@ contract StargatePoolMock is IStargatePool {
   }
 
   function amountLPtoLD(uint256 _amountLP) public view returns (uint256) {
-    if (totalSupply() == 0 || totalLiquidity() == 0) {
-      return _amountLP * 2;
-    }
-
-    return _amountLP * totalLiquidity() / totalSupply();
+    return convertToAssets(_amountLP);
   }
 
   function amountLDtoLP(uint256 _amountLD) public view returns (uint256) {
-    if (totalLiquidity() == 0 || totalLiquidity() == 0) {
-      return _amountLD / 2;
-    }
-    return _amountLD * totalSupply() / totalLiquidity();
+    return convertToShares(_amountLD);
   }
 
   function addLiquidity(uint256 _amountLD, address _to) external {
-    ERC20Mock(underlying).transferFrom(msg.sender, address(this), _amountLD);
-
-    lpToken.mint(_to, amountLDtoLP(_amountLD));
+    addLiquidityToPool(_amountLD);
   }
 
   function instantRedeemLocal(uint256 _amountLP, address _to) external {
-    lpToken.burn(msg.sender, _amountLP);
-
-    ERC20Mock(underlying).transfer(msg.sender, amountLPtoLD(_amountLP));
+    removeLiquidityFromPool(_amountLP);
   }
 }

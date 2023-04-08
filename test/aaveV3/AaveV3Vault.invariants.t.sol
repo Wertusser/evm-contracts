@@ -29,7 +29,7 @@ contract AaveV3VaultInvariants is ERC4626CompoundableInvariants {
     aave = new ERC20Mock();
     underlying = new ERC20Mock();
     aToken = new WERC20Mock(underlying);
-    lendingPool = new PoolMock();
+    lendingPool = new PoolMock(underlying);
     rewardsController = new RewardsControllerMock(address(aave));
     
     swapper = new SwapperMock(aave, underlying);
@@ -43,7 +43,6 @@ contract AaveV3VaultInvariants is ERC4626CompoundableInvariants {
             feesController
         );
 
-    lendingPool.setReserveAToken(address(underlying), aToken);
     underlying.mint(address(lendingPool), 10 ** 24);
 
     vault = AaveV3Vault(address(factory.createERC4626(underlying)));

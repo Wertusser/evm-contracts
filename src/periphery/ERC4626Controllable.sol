@@ -9,22 +9,47 @@ import "./Swapper.sol";
 abstract contract ERC4626Controllable is ERC4626, AccessControl {
   bytes32 public constant MANAGEMENT_ROLE = keccak256("MANAGEMENT_ROLE");
   bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
+
+  uint256 public depositLimit;
   bool public canDeposit;
   address public admin;
 
+  uint256 private locked = 1; // Used in reentrancy check.
+
   mapping(address => uint256) public depositOf;
   mapping(address => uint256) public withdrawOf;
+
+  event DepositLimitUpdated(uint256 depositLimit);
+  event Recovered(address token, uint256 amount);
+  event DepositUpdated(bool canDeposit);
+
+  modifier nonReentrant() {
+    require(locked == 1, "Non-reentrancy guard");
+    locked = 2;
+    _;
+    locked = 1;
+  }
 
   constructor(IERC20 asset_, address admin_) ERC4626(asset_) AccessControl() {
     _setupRole(DEFAULT_ADMIN_ROLE, admin_);
     _setupRole(MANAGEMENT_ROLE, admin_);
     _setupRole(EMERGENCY_ROLE, admin_);
 
+    depositLimit = type(uint256).max;
     canDeposit = true;
   }
 
   function toggle() public onlyRole(EMERGENCY_ROLE) {
     canDeposit = !canDeposit;
+
+    emit DepositUpdated(canDeposit);
+  }
+
+  function setDepositLimit(uint256 depositLimit_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    require(depositLimit_ >= totalAssets());
+    depositLimit = depositLimit_;
+
+    emit DepositLimitUpdated(depositLimit);
   }
 
   function setRole(bytes32 role, address account, bool remove) internal {
@@ -41,6 +66,16 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
 
   function setEmergency(address manager, bool remove) public onlyRole(DEFAULT_ADMIN_ROLE) {
     setRole(EMERGENCY_ROLE, manager, remove);
+  }
+
+  function recoverERC20(address tokenAddress, uint256 tokenAmount)
+    external
+    onlyRole(DEFAULT_ADMIN_ROLE)
+  {
+    require(tokenAddress != address(_asset), "Cannot withdraw the underlying token");
+    IERC20(tokenAddress).transfer(_msgSender(), tokenAmount);
+    
+    emit Recovered(tokenAddress, tokenAmount);
   }
 
   /////////////////
@@ -61,6 +96,8 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
     override
   {
     require(canDeposit, "Error: deposits is currently paused");
+    require(totalAssets() + assets <= depositLimit, "Error: deposit overflow");
+
     _asset.transferFrom(caller, address(this), assets);
     _mint(receiver, shares);
 

@@ -35,7 +35,7 @@ contract AaveV3VaultStdTest is ERC4626Test {
     aave = new ERC20Mock();
     underlying = new ERC20Mock();
     aToken = new WERC20Mock(underlying);
-    lendingPool = new PoolMock();
+    lendingPool = new PoolMock(underlying);
     rewardsController = new RewardsControllerMock(address(aave));
 
     swapper = new SwapperMock(aave, underlying);
@@ -48,7 +48,6 @@ contract AaveV3VaultStdTest is ERC4626Test {
             swapper,
             feesController
         );
-    lendingPool.setReserveAToken(address(underlying), aToken);
     vault = AaveV3Vault(address(factory.createERC4626(underlying)));
 
     // for ERC4626Test setup

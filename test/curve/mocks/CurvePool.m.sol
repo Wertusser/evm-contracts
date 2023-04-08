@@ -3,6 +3,7 @@ pragma solidity ^0.8.4;
 import { ERC20, IERC20 } from "../../../src/periphery/ERC20.sol";
 
 import { ERC20Mock } from "../../mocks/ERC20.m.sol";
+import { LpPoolMock } from "../../mocks/LpPool.m.sol";
 import { ICurvePool } from "../../../src/providers/curve/external/ICurvePool.sol";
 
 contract CurvePoolMock is ICurvePool {

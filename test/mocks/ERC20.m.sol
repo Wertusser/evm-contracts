@@ -1,4 +1,4 @@
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.13;
 
 import { ERC20 } from "../../src/periphery/ERC20.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
@@ -37,6 +37,7 @@ contract WERC20Mock is ERC20Mock {
   function unwrap(uint256 amount) public {
     unwrapFrom(msg.sender, amount);
   }
+
   function unwrapFrom(address user, uint256 amount) public {
     require(amount <= this.balanceOf(user));
     this.burn(user, amount);
