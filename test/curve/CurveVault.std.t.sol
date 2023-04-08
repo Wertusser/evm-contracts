@@ -34,15 +34,12 @@ contract CurveVaultStdTest is ERC4626Test {
 
     vault = new CurveVault(
         IIERC20(underlying),
-        IIERC20(reward),
         pool,
         gauge,
         0,
         2,
         swapper,
-        address(feesController),
-        msg.sender,
-        msg.sender,
+        feesController,
         msg.sender
     );
 

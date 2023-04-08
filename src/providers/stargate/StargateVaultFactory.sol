@@ -73,7 +73,7 @@ contract StargateVaultFactory is ERC4626Factory {
     revert StargateVaultFactory__Deprecated();
   }
 
-  function createERC4626_(uint256 poolId, uint256 stakingId, IERC20 reward)
+  function createERC4626_(uint256 poolId, uint256 stakingId)
     external
     returns (ERC4626 vault)
   {
@@ -96,11 +96,8 @@ contract StargateVaultFactory is ERC4626Factory {
           stargateLPStaking,
           stakingId,
           lpToken,
-          reward,
           swapper,
-          address(feesController),
-          admin,
-          admin,
+          feesController,
           admin
         );
 
@@ -138,11 +135,8 @@ contract StargateVaultFactory is ERC4626Factory {
               stargateLPStaking,
               stakingId,
               lpToken,
-              reward,
               swapper,
-              address(feesController),
-              admin,
-              admin,
+              feesController,
               admin
             )
           )

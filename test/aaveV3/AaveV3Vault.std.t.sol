@@ -19,7 +19,6 @@ import {SwapperMock} from "../mocks/Swapper.m.sol";
 contract AaveV3VaultStdTest is ERC4626Test {
   address public constant rewardRecipient = address(0x01);
 
-  // copied from AaveV3Vault.t.sol
   ERC20Mock public aave;
   WERC20Mock public aToken;
   AaveV3Vault public vault;
@@ -31,7 +30,6 @@ contract AaveV3VaultStdTest is ERC4626Test {
   FeesController public feesController;
 
   function setUp() public override {
-    // copied from AaveV3Vault.t.sol
     aave = new ERC20Mock();
     underlying = new ERC20Mock();
     aToken = new WERC20Mock(underlying);
@@ -41,14 +39,16 @@ contract AaveV3VaultStdTest is ERC4626Test {
     swapper = new SwapperMock(aave, underlying);
     feesController = new FeesController(msg.sender);
 
-    factory = new AaveV3VaultFactory(
-            aave,
-            lendingPool,
-            rewardsController,
-            swapper,
-            feesController
-        );
-    vault = AaveV3Vault(address(factory.createERC4626(underlying)));
+
+    vault = new AaveV3Vault(
+      underlying,
+      aToken,
+      lendingPool,
+      rewardsController,
+      swapper,
+      feesController,
+      msg.sender
+    );
 
     // for ERC4626Test setup
     _underlying_ = address(underlying);

@@ -25,7 +25,7 @@ contract DeployScript is Script {
         IERC20 reward,
         StargateVaultFactory deployed
     ) public payable returns (address vault) {
-        deployed.createERC4626_(poolId, stakingId, reward);
+        deployed.createERC4626_(poolId, stakingId);
         vault = address(deployed.computeERC4626Address_(poolId, stakingId, reward));
 
         USDC.approve(vault, 10 ** 6);

@@ -134,7 +134,7 @@ contract Depositor is ActorBase {
     address to = actorsRand(toSeed);
 
     amount = bound(amount, 0, vault.balanceOf(from));
-    amount = bound(amount, 0, vault.allowance(currentActor, from));
+    amount = bound(amount, 0, vault.allowance(from, currentActor));
 
     if (amount == 0) {
       ghost_zeroTransfer += 1;

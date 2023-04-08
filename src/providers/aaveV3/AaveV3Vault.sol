@@ -39,7 +39,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
   /// -----------------------------------------------------------------------
 
   /// @notice The Aave aToken contract
-  ERC20 public immutable aToken;
+  IERC20 public immutable aToken;
 
   /// @notice The Aave Pool contract
   IPool public immutable lendingPool;
@@ -52,17 +52,14 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
   /// -----------------------------------------------------------------------
 
   constructor(
-    ERC20 asset_,
-    ERC20 aToken_,
+    IERC20 asset_,
+    IERC20 aToken_,
     IPool lendingPool_,
     IRewardsController rewardsController_,
-    IERC20 reward_,
     ISwapper swapper_,
-    address feesController_,
-    address owner_,
-    address management_,
-    address emergency_
-  ) ERC4626Compoundable(asset_, swapper_, owner_) WithFees(feesController_)  {
+    IFeeController feesController_,
+    address owner_
+  ) ERC4626Compoundable(asset_, swapper_, owner_) WithFees(feesController_) {
     aToken = aToken_;
     lendingPool = lendingPool_;
     rewardsController = rewardsController_;
@@ -89,19 +86,20 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     /// -----------------------------------------------------------------------
     /// Withdraw assets from Aave
     /// -----------------------------------------------------------------------
-    return lendingPool.withdraw(address(_asset), assets, address(this));
+    return lendingPool.withdraw(asset(), assets, address(this));
   }
 
   function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal virtual override {
     /// -----------------------------------------------------------------------
     /// Deposit assets into Aave
     /// -----------------------------------------------------------------------
-    lendingPool.supply(address(_asset), assets, address(this), 0);
+    lendingPool.supply(asset(), assets, address(this), 0);
   }
 
   function maxDeposit(address owner) public view virtual override returns (uint256) {
     // check if asset is paused
-    uint256 configData = lendingPool.getReserveData(address(_asset)).configuration.data;
+    uint256 configData = lendingPool.getReserveData(asset()).configuration.data;
+
     if (!(_getActive(configData) && !_getFrozen(configData) && !_getPaused(configData))) {
       return 0;
     }
@@ -119,7 +117,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
 
   function maxMint(address owner) public view virtual override returns (uint256) {
     // check if asset is paused
-    uint256 configData = lendingPool.getReserveData(address(_asset)).configuration.data;
+    uint256 configData = lendingPool.getReserveData(asset()).configuration.data;
     if (!(_getActive(configData) && !_getFrozen(configData) && !_getPaused(configData))) {
       return 0;
     }
@@ -137,7 +135,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
 
   function maxWithdraw(address owner) public view virtual override returns (uint256) {
     // check if asset is paused
-    uint256 configData = lendingPool.getReserveData(address(_asset)).configuration.data;
+    uint256 configData = lendingPool.getReserveData(asset()).configuration.data;
     if (!(_getActive(configData) && !_getPaused(configData))) {
       return 0;
     }
@@ -149,7 +147,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
 
   function maxRedeem(address owner) public view virtual override returns (uint256) {
     // check if asset is paused
-    uint256 configData = lendingPool.getReserveData(address(_asset)).configuration.data;
+    uint256 configData = lendingPool.getReserveData(asset()).configuration.data;
     if (!(_getActive(configData) && !_getPaused(configData))) {
       return 0;
     }
@@ -211,12 +209,21 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     virtual
     override
     returns (uint256 rewardAmount)
-  { }
+  {
+    address[] memory assets = new address[](1);
+    assets[0] = asset();
+
+    (, uint256[] memory claimedAmounts) =
+      rewardsController.claimAllRewards(assets, address(this));
+    return claimedAmounts[0];
+  }
 
   function _tend()
     internal
     virtual
     override
     returns (uint256 wantAmount, uint256 sharesAdded)
-  { }
+  {
+    lendingPool.supply(asset(), _asset.balanceOf(address(this)), address(this), 0);
+  }
 }

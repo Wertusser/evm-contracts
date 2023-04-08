@@ -5,11 +5,17 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "forge-std/interfaces/IERC20.sol";
 import { IERC4626 } from "./ERC4626.sol";
 
-contract WithFees {
-  FeesController private controller;
+interface IFeeController {
+  function collectFee(uint256 amount, string memory feeType)
+    external
+    returns (uint256 feesAmount, uint256 restAmount);
+}
 
-  constructor(address feeController) {
-    controller = FeesController(feeController);
+contract WithFees {
+  IFeeController private controller;
+
+  constructor(IFeeController feeController) {
+    controller = feeController;
   }
 
   function feesController() public view returns (address) {
@@ -24,7 +30,7 @@ contract WithFees {
   }
 }
 
-contract FeesController is Ownable {
+contract FeesController is IFeeController, Ownable {
   uint24 constant MAX_BPS = 10000; // 100
   uint24 constant MAX_FEE_BPS = 2500; // 25%
 

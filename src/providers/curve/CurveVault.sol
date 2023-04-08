@@ -22,20 +22,14 @@ contract CurveVault is ERC4626Compoundable, WithFees {
 
   constructor(
     IERC20 asset_,
-    IERC20 reward_,
     ICurvePool pool_,
     ICurveGauge gauge_,
     uint8 coinId_,
     uint8 coins_,
     ISwapper swapper_,
-    address feesController_,
-    address owner_,
-    address management,
-    address emergency
-  )
-    ERC4626Compoundable(asset_, swapper_, owner_)
-    WithFees(feesController_)
-  {
+    IFeeController feesController_,
+    address owner_
+  ) ERC4626Compoundable(asset_, swapper_, owner_) WithFees(feesController_) {
     curvePool = pool_;
     curveGauge = gauge_;
     lpToken = IERC20(gauge_.lp_token());

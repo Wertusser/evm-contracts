@@ -32,15 +32,12 @@ contract CurveVaultInvariants is ERC4626Invariants {
 
     vault = new CurveVault(
         IERC20(underlying),
-        IERC20(reward),
         pool,
         gauge,
         0,
         2,
         swapper,
-        address(feesController),
-        msg.sender,
-        msg.sender,
+        feesController,
         msg.sender
     );
 

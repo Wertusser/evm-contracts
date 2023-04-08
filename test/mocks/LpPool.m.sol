@@ -45,12 +45,12 @@ contract LpPoolMock is ERC4626, TestBase, StdCheats, StdUtils {
     }
   }
 
-  function addLiquidityToPool(uint256 amount) public returns (uint256) {
+  function addLiquidityToPool(uint256 amount) public returns (uint256 shares) {
     syncYield();
     return deposit(amount, msg.sender);
   }
 
-  function removeLiquidityFromPool(uint256 sharesAmount) public returns (uint256) {
+  function removeLiquidityFromPool(uint256 sharesAmount) public returns (uint256 assets) {
     syncYield();
     return redeem(sharesAmount, msg.sender, msg.sender);
   }
