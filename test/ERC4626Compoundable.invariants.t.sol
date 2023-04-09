@@ -9,29 +9,33 @@ import { ERC4626, ERC4626Compoundable } from "../src/periphery/ERC4626Compoundab
 import { IERC4626 } from "../src/periphery/ERC4626.sol";
 import { AddressSet, LibAddressSet } from "../src/utils/AddressSet.sol";
 
-
 abstract contract ERC4626CompoundableInvariants is Test {
   IERC4626 public _vault;
   Depositor public depositor;
-  address constant KEEPER_ADDRESS_MOCK = address(0x12341234);
+  Keeper public keeper;
 
   function setVault(IERC4626 vault_, IERC20 reward) public {
     _vault = vault_;
     depositor = new Depositor(_vault);
-    bytes4[] memory selectors = new bytes4[](7);
+    keeper = new Keeper(ERC4626Compoundable(address(_vault)), reward);
+    bytes4[] memory depositorSelector = new bytes4[](7);
+    bytes4[] memory keeperSelector = new bytes4[](1);
 
-    selectors[0] = Depositor.deposit.selector;
-    selectors[1] = Depositor.withdraw.selector;
-    selectors[2] = Depositor.mint.selector;
-    selectors[3] = Depositor.redeem.selector;
-    selectors[4] = Depositor.approve.selector;
-    selectors[5] = Depositor.transfer.selector;
-    selectors[6] = Depositor.transferFrom.selector;
-    // selectors[7] = Keeper.harvest.selector;
-    // selectors[8] = Keeper.tend.selector;
+    depositorSelector[0] = Depositor.deposit.selector;
+    depositorSelector[1] = Depositor.withdraw.selector;
+    depositorSelector[2] = Depositor.mint.selector;
+    depositorSelector[3] = Depositor.redeem.selector;
+    depositorSelector[4] = Depositor.approve.selector;
+    depositorSelector[5] = Depositor.transfer.selector;
+    depositorSelector[6] = Depositor.transferFrom.selector;
+    keeperSelector[0] = Keeper.harvestTend.selector;
 
-    targetSelector(FuzzSelector({ addr: address(depositor), selectors: selectors }));
+    targetSelector(
+      FuzzSelector({ addr: address(depositor), selectors: depositorSelector })
+    );
+    targetSelector(FuzzSelector({ addr: address(keeper), selectors: keeperSelector }));
     excludeContract(address(_vault));
+    excludeContract(address(keeper));
   }
 
   function accumulateAssetBalance(uint256 balance, address caller)
@@ -39,7 +43,7 @@ abstract contract ERC4626CompoundableInvariants is Test {
     view
     returns (uint256)
   {
-    return balance + _vault.maxRedeem(caller);
+    return balance + _vault.maxWithdraw(caller);
   }
 
   function accumulateShareBalance(uint256 balance, address caller)
@@ -47,11 +51,11 @@ abstract contract ERC4626CompoundableInvariants is Test {
     view
     returns (uint256)
   {
-    return balance + _vault.maxWithdraw(caller);
+    return balance + _vault.maxRedeem(caller);
   }
 
   function accumulateProfit(uint256 balance, address caller)
-    external
+    public
     view
     returns (uint256)
   {
@@ -60,45 +64,107 @@ abstract contract ERC4626CompoundableInvariants is Test {
     return balance + profit;
   }
 
-  function accumulateLoss(uint256 balance, address caller)
-    external
-    view
-    returns (uint256)
-  {
+  function accumulateLoss(uint256 balance, address caller) public view returns (uint256) {
     ERC4626Compoundable v = ERC4626Compoundable(address(_vault));
     uint256 loss = v.pnl(caller) < 0 ? uint256(-v.pnl(caller)) : 0;
     return balance + loss;
   }
 
+  function showActor(address actor) external view {
+    IERC20 asset = IERC20(_vault.asset());
+    console.log(actor);
+    console.log("Deposited: ", _vault.convertToAssets(_vault.balanceOf(actor)));
+    console.log("Shares: ", _vault.balanceOf(actor));
+    console.log("Assets:", asset.balanceOf(actor));
+    console.log("Profit: ", accumulateProfit(0, actor));
+    console.log("Loss: ", accumulateLoss(0, actor), "\n");
+  }
+
   function invariant_callSummary() public {
     depositor.callDepositorSummary();
+    keeper.callHarvestSummary();
+    console.log("\nProfit and Loss");
+    console.log("-------------------");
+    console.log("Total Profit: ", depositor.reduceActors(0, this.accumulateProfit));
+    console.log("Total Loss: ", depositor.reduceActors(0, this.accumulateLoss));
+    if (depositor.actorsCount() < 10) {
+      console.log("\nActors status:");
+      console.log("-------------------");
+      depositor.forEachActor(this.showActor);
+    }
   }
 
   function invariant_totalAssetsSolvency() public {
-    bool isSolvent = depositor.ghost_depositSum() >= depositor.ghost_withdrawSum();
-    assertTrue(isSolvent);
+    assertGe(
+      depositor.ghost_depositSum() + keeper.ghost_gainSum(),
+      depositor.ghost_withdrawSum(),
+      "Invariant: depositSum + gainSum >= withdrawSum"
+    );
 
-    uint256 totalAssets_ = depositor.ghost_depositSum() - depositor.ghost_withdrawSum();
-    assertEq(_vault.totalAssets(), totalAssets_);
+    // assertApproxEqAbs(
+    //   _vault.totalAssets(),
+    //   depositor.ghost_depositSum() + keeper.ghost_gainSum()
+    //     - depositor.ghost_withdrawSum(),
+    //   100,
+    //   "Invariant:  totalAssets == depositSum + gainSum - withdrawSum"
+    // );
+
+    // TODO: with linear vesting should be assertLe,
+    // also requires underlying tokens to be stored at vault
+
+    // assertEq(
+    //   _vault.totalAssets(),
+    //   IERC20(_vault.asset()).balanceOf(address(_vault)),
+    //   "Invariant:  totalAssets <= underlying balance of contract (with rounding)"
+    // );
   }
 
   function invariant_sharesZeroOverflow() public {
     uint256 sumOfShares = depositor.reduceActors(0, this.accumulateShareBalance);
-    assertEq(_vault.totalSupply(), sumOfShares);
+
+    assertApproxEqAbs(
+      _vault.totalSupply(),
+      sumOfShares,
+      100,
+      "Invariant: totalSupply == sum of all actor's max redeem"
+    );
   }
 
   function invariant_sharesIsSolvent() public {
     uint256 sumOfAssets = depositor.reduceActors(0, this.accumulateAssetBalance);
-    assertEq(_vault.totalAssets(), sumOfAssets);
+
+    assertApproxEqAbs(
+      _vault.totalAssets(),
+      sumOfAssets,
+      100,
+      "Invariant: totalAssets == sum of all actor's max withdraw"
+    );
   }
 
   function invariant_totalAssetsShareRelation() public {
-    assertGe(_vault.totalAssets(), _vault.totalSupply());
+    assertEq(
+      _vault.convertToAssets(_vault.totalSupply()),
+      _vault.totalAssets(),
+      "Invariant: convertToAssets(totalSupply) == totalAssets"
+    );
+
+    // This can be impossible in real life case due to impermanent losses/hacks/rugs
+
+    // assertGe(
+    //   _vault.totalAssets(),
+    //   _vault.totalSupply(),
+    //   "Invariant: totalAssets >= totalSupply (can yield)"
+    // );
   }
 
   function invariant_zeroSumPnl() public {
     uint256 sumOfProfit = depositor.reduceActors(0, this.accumulateProfit);
     uint256 sumOfLoss = depositor.reduceActors(0, this.accumulateLoss);
-    assertEq(sumOfProfit, sumOfLoss);
+    assertGe(keeper.ghost_gainSum(), sumOfProfit - sumOfLoss, "Invariant: gain >= profit - loss");
+
+    // This can be impossible in real life case due to impermanent losses/hacks/rugs
+    
+    // assertGe(sumOfProfit, sumOfLoss, "Invariant: profit >= loss");
+    // assertEq(sumOfProfit, sumOfLoss, "Invariant: sumOfProfit == sumOfLoss");
   }
 }

@@ -97,6 +97,9 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
   }
 
   function maxDeposit(address owner) public view virtual override returns (uint256) {
+    if (totalAssets() >= depositLimit) {
+      return 0;
+    }
     // check if asset is paused
     uint256 configData = lendingPool.getReserveData(asset()).configuration.data;
 
@@ -107,15 +110,21 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     // handle supply cap
     uint256 supplyCapInWholeTokens = _getSupplyCap(configData);
     if (supplyCapInWholeTokens == 0) {
-      return _asset.balanceOf(owner);
+      return depositLimit - totalAssets();
     }
 
     uint8 tokenDecimals = _getDecimals(configData);
-    uint256 supplyCap = supplyCapInWholeTokens * 10 ** tokenDecimals;
-    return supplyCap - aToken.totalSupply();
+    uint256 supplyCap =
+      supplyCapInWholeTokens * 10 ** tokenDecimals - aToken.totalSupply();
+    uint256 limitCap = depositLimit - totalAssets();
+
+    return limitCap < supplyCap ? limitCap : supplyCap;
   }
 
   function maxMint(address owner) public view virtual override returns (uint256) {
+    if (totalAssets() >= depositLimit) {
+      return 0;
+    }
     // check if asset is paused
     uint256 configData = lendingPool.getReserveData(asset()).configuration.data;
     if (!(_getActive(configData) && !_getFrozen(configData) && !_getPaused(configData))) {
@@ -125,12 +134,15 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     // handle supply cap
     uint256 supplyCapInWholeTokens = _getSupplyCap(configData);
     if (supplyCapInWholeTokens == 0) {
-      return convertToShares(_asset.balanceOf(owner));
+      return convertToShares(depositLimit - totalAssets());
     }
 
     uint8 tokenDecimals = _getDecimals(configData);
-    uint256 supplyCap = supplyCapInWholeTokens * 10 ** tokenDecimals;
-    return convertToShares(supplyCap - aToken.totalSupply());
+    uint256 supplyCap =
+      supplyCapInWholeTokens * 10 ** tokenDecimals - aToken.totalSupply();
+    uint256 limitCap = depositLimit - totalAssets();
+
+    return convertToShares(limitCap < supplyCap ? limitCap : supplyCap);
   }
 
   function maxWithdraw(address owner) public view virtual override returns (uint256) {
@@ -224,6 +236,8 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     override
     returns (uint256 wantAmount, uint256 sharesAdded)
   {
-    lendingPool.supply(asset(), _asset.balanceOf(address(this)), address(this), 0);
+    wantAmount = _asset.balanceOf(address(this));
+    sharesAdded = convertToShares(wantAmount);
+    lendingPool.supply(asset(), wantAmount, address(this), 0);
   }
 }

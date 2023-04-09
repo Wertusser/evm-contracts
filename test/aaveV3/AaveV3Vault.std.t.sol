@@ -34,7 +34,8 @@ contract AaveV3VaultStdTest is ERC4626Test {
     underlying = new ERC20Mock();
     aToken = new WERC20Mock(underlying);
     lendingPool = new PoolMock(underlying);
-    rewardsController = new RewardsControllerMock(address(aave));
+    rewardsController =
+      new RewardsControllerMock(address(lendingPool.aToken()), address(aave));
 
     swapper = new SwapperMock(aave, underlying);
     feesController = new FeesController(msg.sender);

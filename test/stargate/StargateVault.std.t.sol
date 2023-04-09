@@ -32,11 +32,10 @@ contract StargateVaultStdTest is ERC4626Test {
   function setUp() public override {
     owner = msg.sender;
 
-    lpToken = new ERC20Mock();
     underlying = new ERC20Mock();
     reward = new ERC20Mock();
 
-    poolMock = new StargatePoolMock(0, underlying, lpToken);
+    poolMock = new StargatePoolMock(0, underlying);
     routerMock = new StargateRouterMock(poolMock);
     stakingMock = new StargateLPStakingMock(lpToken, reward);
 

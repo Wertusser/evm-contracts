@@ -88,7 +88,7 @@ contract StakePoolMock is TestBase, StdCheats, StdUtils {
   /* ========== MUTATIVE FUNCTIONS ========== */
 
   function depositStake(uint256 amount) public updateReward(msg.sender) {
-    require(amount > 0, "Cannot stake 0");
+    // require(amount > 0, "Cannot stake 0");
     _totalSupply += amount;
     _balances[msg.sender] += amount;
     stakingToken.transferFrom(msg.sender, address(this), amount);
@@ -96,7 +96,7 @@ contract StakePoolMock is TestBase, StdCheats, StdUtils {
   }
 
   function withdrawStake(uint256 amount) public updateReward(msg.sender) {
-    require(amount > 0, "Cannot withdraw 0");
+    // require(amount > 0, "Cannot withdraw 0");
     _totalSupply -= amount;
     _balances[msg.sender] -= amount;
     stakingToken.transfer(msg.sender, amount);

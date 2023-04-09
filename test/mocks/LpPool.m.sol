@@ -10,6 +10,8 @@ contract LpPoolMock is ERC4626, TestBase, StdCheats, StdUtils {
   uint256 public lastYieldAt;
   ERC20Mock public assetMock;
 
+  event SyncYield(uint256 yieldAdded, uint256 sharesBefore, uint256 sharesAfter, uint256 timeAt);
+
   constructor(ERC20Mock asset_) ERC4626(asset_) {
     assetMock = asset_;
     lastYieldAt = block.timestamp;
@@ -40,19 +42,25 @@ contract LpPoolMock is ERC4626, TestBase, StdCheats, StdUtils {
   function syncYield() public {
     uint256 amount = earned();
     if (amount > 0) {
+      uint256 rateBefore = convertToAssets(1e18);
       assetMock.mint(address(this), amount);
+      uint256 rateAfter = convertToAssets(1e18);
+
       lastYieldAt = block.timestamp;
+      emit SyncYield(amount, rateBefore, rateAfter, lastYieldAt);
     }
   }
 
-  function addLiquidityToPool(uint256 amount) public returns (uint256 shares) {
+  function deposit2(uint256 amount, address receiver) public returns (uint256 shares) {
     syncYield();
-    return deposit(amount, msg.sender);
+    return deposit(amount, receiver);
   }
 
-  function removeLiquidityFromPool(uint256 sharesAmount) public returns (uint256 assets) {
-    syncYield();
-    return redeem(sharesAmount, msg.sender, msg.sender);
+  function redeem2(uint256 sharesAmount, address receiver, address account)
+    public
+    returns (uint256)
+  {
+    return redeem(sharesAmount, receiver, account);
   }
 
   function afterDeposit(uint256 assets, uint256 shares) internal virtual override { }

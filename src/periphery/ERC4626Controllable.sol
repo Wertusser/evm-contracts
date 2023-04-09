@@ -36,6 +36,7 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
     _setupRole(EMERGENCY_ROLE, admin_);
 
     depositLimit = type(uint256).max;
+    // depositLimit = 1e8;
     canDeposit = true;
   }
 

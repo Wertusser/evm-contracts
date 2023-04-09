@@ -6,25 +6,25 @@ import { LpPoolMock } from "../../mocks/LpPool.m.sol";
 import "forge-std/console2.sol";
 import "../../mocks/ERC20.m.sol";
 
-contract StargatePoolMock is IStargatePool, LpPoolMock {
+contract StargatePoolMock is IStargatePool {
   uint256 public poolId;
 
-  ERC20Mock public lpToken;
+  WERC20Mock public lpToken;
   ERC20Mock public underlying;
 
-  constructor(uint256 poolId_, ERC20Mock underlying_, ERC20Mock lpToken_) LpPoolMock(underlying_) {
+  constructor(uint256 poolId_, ERC20Mock underlying_) {
     poolId = poolId_;
-    lpToken = lpToken_;
     underlying = underlying_;
+    lpToken = new WERC20Mock(underlying);
+    underlying.approve(address(lpToken), type(uint256).max);
   }
 
   function token() external view returns (address) {
     return address(underlying);
   }
 
-/// TODO: WTF
-  function totalSupply() public view override(ERC20, IERC20, IStargatePool) returns (uint256) {
-    return this.totalSupply();
+  function totalSupply() public view returns (uint256) {
+    return lpToken.totalSupply();
   }
 
   function totalLiquidity() public view returns (uint256) {
@@ -36,18 +36,22 @@ contract StargatePoolMock is IStargatePool, LpPoolMock {
   }
 
   function amountLPtoLD(uint256 _amountLP) public view returns (uint256) {
-    return convertToAssets(_amountLP);
+    return _amountLP;
   }
 
   function amountLDtoLP(uint256 _amountLD) public view returns (uint256) {
-    return convertToShares(_amountLD);
+    return _amountLD;
   }
 
   function addLiquidity(uint256 _amountLD, address _to) external {
-    addLiquidityToPool(_amountLD);
+    underlying.transferFrom(msg.sender, address(this), _amountLD);
+    lpToken.wrap(_amountLD);
+    lpToken.transfer(_to, _amountLD);
   }
 
   function instantRedeemLocal(uint256 _amountLP, address _to) external {
-    removeLiquidityFromPool(_amountLP);
+    lpToken.transferFrom(msg.sender, address(this), _amountLP);
+    lpToken.unwrap(_amountLP);
+    underlying.transfer(_to, _amountLP);
   }
 }

@@ -23,7 +23,7 @@ contract Depositor is ActorBase {
     console.log("-------------------");
     console.log("total assets", vault.totalAssets());
     console.log("total shares", vault.totalSupply());
-    console.log("real assets", ghost_depositSum - ghost_withdrawSum);
+    // console.log("real assets", ghost_depositSum - ghost_withdrawSum);
     console.log("\nTotal summary:");
     console.log("-------------------");
     console.log("total actors", actorsCount());
@@ -48,8 +48,15 @@ contract Depositor is ActorBase {
 
   // Core ERC4262 methods
 
+  function min(uint256 a, uint256 b) public pure returns (uint256) {
+    return a < b ? a : b;
+  }
+
+
   function deposit(uint256 amount) public createActor countCall("deposit") {
-    amount = bound(amount, 0, IERC20(vault.asset()).balanceOf(currentActor));
+    uint256 maxAmount = min(vault.maxDeposit(currentActor), IERC20(vault.asset()).balanceOf(currentActor));
+    amount = bound(amount, 0, maxAmount);
+
     if (amount == 0) {
       ghost_zeroDeposit += 1;
     }
@@ -58,11 +65,15 @@ contract Depositor is ActorBase {
   }
 
   function mint(uint256 amount) public createActor countCall("mint") {
-    amount = bound(amount, 0, IERC20(vault.asset()).balanceOf(currentActor));
+    uint256 maxAmount = min(vault.maxDeposit(currentActor), IERC20(vault.asset()).balanceOf(currentActor));
+    amount = bound(amount, 0, maxAmount);
+
     if (amount == 0) {
       ghost_zeroDeposit += 1;
     }
     uint256 shares = vault.convertToShares(amount);
+
+    shares = min(vault.maxMint(currentActor), shares);
 
     vault.mint(shares, currentActor);
     ghost_depositSum += amount;
@@ -73,7 +84,7 @@ contract Depositor is ActorBase {
     useActor(actorSeed)
     countCall("withdraw")
   {
-    amount = bound(amount, 0, vault.maxRedeem(currentActor));
+    amount = bound(amount, 0, vault.maxWithdraw(currentActor));
     if (amount == 0) {
       ghost_zeroWithdraw += 1;
     }

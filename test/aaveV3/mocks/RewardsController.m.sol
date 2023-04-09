@@ -1,28 +1,33 @@
 pragma solidity ^0.8.4;
 
 // interfaces
-import {ERC20Mock} from "../../mocks/ERC20.m.sol";
-import {IRewardsController} from "../../../src/providers/aaveV3/external/IRewardsController.sol";
+import { ERC20Mock } from "../../mocks/ERC20.m.sol";
+import { IRewardsController } from
+  "../../../src/providers/aaveV3/external/IRewardsController.sol";
 
 contract RewardsControllerMock is IRewardsController {
-    uint256 public constant CLAIM_AMOUNT = 10 ** 18;
-    ERC20Mock public aave;
+  uint256 public constant CLAIM_AMOUNT = 12345;
+  ERC20Mock public aave;
+  ERC20Mock public aToken;
 
-    constructor(address _aave) {
-        aave = ERC20Mock(_aave);
-    }
+  constructor(address _aToken, address _aave) {
+    aave = ERC20Mock(_aave);
+    aToken = ERC20Mock(_aToken);
+  }
 
-    function claimAllRewards(address[] calldata, address to)
-        external
-        override
-        returns (address[] memory rewardsList, uint256[] memory claimedAmounts)
-    {
-        aave.mint(to, CLAIM_AMOUNT);
+  function claimAllRewards(address[] calldata, address to)
+    external
+    override
+    returns (address[] memory rewardsList, uint256[] memory claimedAmounts)
+  {
+    uint256 amount = aToken.balanceOf(msg.sender) > 0 ? CLAIM_AMOUNT : 0;
 
-        rewardsList = new address[](1);
-        rewardsList[0] = address(aave);
+    aave.mint(to, amount);
 
-        claimedAmounts = new uint256[](1);
-        claimedAmounts[0] = CLAIM_AMOUNT;
-    }
+    rewardsList = new address[](1);
+    rewardsList[0] = address(aave);
+
+    claimedAmounts = new uint256[](1);
+    claimedAmounts[0] = amount;
+  }
 }

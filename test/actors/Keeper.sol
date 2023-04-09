@@ -15,7 +15,8 @@ contract Keeper is ActorBase {
   uint256 public ghost_zeroGain;
 
   modifier useKeeper() {
-    vm.startPrank(KEEPER);
+    currentActor = KEEPER;
+    vm.startPrank(currentActor);
     _;
     vm.stopPrank();
   }
@@ -33,22 +34,14 @@ contract Keeper is ActorBase {
     console.log("\nKeeper summary:");
     console.log("-------------------");
     console.log("total gain", ghost_gainSum);
-    console.log("zero transfer", ghost_zeroGain);
-    console.log("\nCall summary:");
-    console.log("-------------------");
-    console.log("harvest", calls["harvest"]);
-    console.log("tend", calls["tend"]);
+    console.log("harvest/tend", calls["harvestTend"]);
   }
 
   // Core ERC4262Compoundable methods
 
-  function harvest(uint256 expectedOut) public useKeeper() countCall("harvest") {
-    vm.prank(KEEPER);
+  function harvestTend(uint256 expectedOut) public useKeeper() countCall("harvestTend") {
+    expectedOut = bound(expectedOut, 0, 10 * 1e18);
     ghost_gainSum += vaultCompoundable.harvest(reward, expectedOut);
-  }
-
-  function tend() public useKeeper() countCall("tend") {
-    vm.prank(KEEPER);
     vaultCompoundable.tend();
   }
 }

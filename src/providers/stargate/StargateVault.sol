@@ -84,9 +84,9 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     /// -----------------------------------------------------------------------
     /// Withdraw assets from Stargate
     /// -----------------------------------------------------------------------
-    (, uint256 wantAmount) = payFees(assets, "withdraw");
+    // (, assets) = payFees(assets, "withdraw");
 
-    uint256 lpTokens = getStargateLP(wantAmount);
+    uint256 lpTokens = getStargateLP(assets);
 
     stargateLPStaking.withdraw(poolStakingId, lpTokens);
 
@@ -101,13 +101,13 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     /// -----------------------------------------------------------------------
     /// Deposit assets into Stargate
     /// -----------------------------------------------------------------------
-    (, uint256 wantAmount) = payFees(assets, "deposit");
+    // (, assets) = payFees(assets, "deposit");
 
-    _asset.approve(address(stargateRouter), wantAmount);
+    _asset.approve(address(stargateRouter), assets);
 
     uint256 lpTokensBefore = lpToken.balanceOf(address(this));
 
-    stargateRouter.addLiquidity(stargatePool.poolId(), wantAmount, address(this));
+    stargateRouter.addLiquidity(stargatePool.poolId(), assets, address(this));
 
     uint256 lpTokensAfter = lpToken.balanceOf(address(this));
 
@@ -118,12 +118,12 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     stargateLPStaking.deposit(poolStakingId, lpTokens);
   }
 
-  function maxDeposit(address owner) public view override returns (uint256) {
-    return canDeposit ? _asset.balanceOf(owner) : 0;
+  function maxDeposit(address owner) public view override returns (uint256 ) {
+    return canDeposit ? depositLimit - totalAssets() : 0;
   }
 
   function maxMint(address owner) public view override returns (uint256) {
-    return canDeposit ? convertToShares(_asset.balanceOf(owner)) : 0;
+    return canDeposit ? convertToShares(depositLimit - totalAssets()) : 0;
   }
 
   function maxWithdraw(address owner) public view override returns (uint256) {

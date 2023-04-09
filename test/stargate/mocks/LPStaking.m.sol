@@ -19,10 +19,8 @@ contract StargateLPStakingMock is IStargateLPStaking, StakePoolMock {
   }
 
   function userInfo(uint256 _pid, address _owner) external view returns (UserInfo memory) {
-    return UserInfo({
-      amount: balanceOf(_owner),
-      rewardDebt: userRewardPerTokenPaid[_owner]
-    });
+    return
+      UserInfo({ amount: balanceOf(_owner), rewardDebt: userRewardPerTokenPaid[_owner] });
   }
 
   function poolInfo(uint256 _pid) external view returns (PoolInfo memory) {
@@ -35,13 +33,19 @@ contract StargateLPStakingMock is IStargateLPStaking, StakePoolMock {
   }
 
   function deposit(uint256 _pid, uint256 _amount) external {
+    if (_amount == 0) {
+      return;
+    }
     depositStake(_amount);
-    collectRewardTokens();
+    // collectRewardTokens();
   }
 
   function withdraw(uint256 _pid, uint256 _amount) external {
+    if (_amount == 0) {
+      return;
+    }
     withdrawStake(_amount);
-    collectRewardTokens();
+    // collectRewardTokens();
   }
 
   function pendingStargate(uint256 _pid, address _user) public view returns (uint256) {

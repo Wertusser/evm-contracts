@@ -1,6 +1,6 @@
 pragma solidity ^0.8.13;
 
-import "../ERC4626.invariants.t.sol";
+import "../ERC4626Compoundable.invariants.t.sol";
 
 import { IERC20 as IIERC20 } from "forge-std/interfaces/IERC20.sol";
 
@@ -13,8 +13,7 @@ import { StargatePoolMock } from "./mocks/Pool.m.sol";
 import { StargateRouterMock } from "./mocks/Router.m.sol";
 import { StargateLPStakingMock } from "./mocks/LPStaking.m.sol";
 
-contract StargateVaultInvariants is ERC4626Invariants {
-  ERC20Mock public lpToken;
+contract StargateVaultInvariants is ERC4626CompoundableInvariants {
   ERC20Mock public underlying;
   ERC20Mock public reward;
   StargatePoolMock public poolMock;
@@ -25,17 +24,16 @@ contract StargateVaultInvariants is ERC4626Invariants {
   StargateVault public vault;
 
   function setUp() public {
-    lpToken = new ERC20Mock();
     underlying = new ERC20Mock();
     reward = new ERC20Mock();
 
-    poolMock = new StargatePoolMock(0, underlying, lpToken);
+    poolMock = new StargatePoolMock(0, underlying);
     routerMock = new StargateRouterMock(poolMock);
-    stakingMock = new StargateLPStakingMock(lpToken, reward);
+    stakingMock =
+      new StargateLPStakingMock(ERC20Mock(address(poolMock.lpToken())), reward);
 
     swapper = new SwapperMock(reward, underlying);
     feesController = new FeesController(msg.sender);
-
 
     vault = new StargateVault(
           IIERC20(address(underlying)),
@@ -43,18 +41,19 @@ contract StargateVaultInvariants is ERC4626Invariants {
           routerMock,
           stakingMock,
           0,
-          IIERC20(address(lpToken)),
+          IIERC20(address(poolMock.lpToken())),
           swapper,
           feesController,
           msg.sender
         );
 
-    setVault(vault);
+    setVault(vault, reward);
 
-    excludeContract(address(lpToken));
     excludeContract(address(underlying));
     excludeContract(address(reward));
     excludeContract(address(poolMock));
+    excludeContract(address(poolMock.lpToken()));
+    excludeContract(address(feesController));
     excludeContract(address(routerMock));
     excludeContract(address(stakingMock));
     excludeContract(address(feesController));
