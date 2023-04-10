@@ -48,7 +48,6 @@ contract StargateVaultStdTest is ERC4626Test {
           routerMock,
           stakingMock,
           0,
-          IIERC20(address(lpToken)),
           swapper,
           feesController,
           owner

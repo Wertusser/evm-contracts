@@ -14,7 +14,7 @@ contract StargateRouterMock is IStargateRouter {
 
   function addLiquidity(uint256 _from, uint256 _amountLD, address _to) external {
     if (_amountLD == 0) {
-      return ;
+      return;
     }
     ERC20Mock(pool.underlying()).transferFrom(msg.sender, address(this), _amountLD);
     ERC20Mock(pool.underlying()).approve(address(pool), _amountLD);
@@ -29,12 +29,11 @@ contract StargateRouterMock is IStargateRouter {
     if (_amountLP == 0) {
       return 0;
     }
-    ERC20Mock(address(pool.lpToken())).transferFrom(msg.sender, address(this), _amountLP);
+    pool.transferFrom(msg.sender, address(this), _amountLP);
     ERC20Mock(address(pool.lpToken())).approve(address(pool), _amountLP);
 
     pool.instantRedeemLocal(_amountLP, _to);
-    uint shares = pool.amountLPtoLD(_amountLP);
-    ERC20Mock(pool.underlying()).transfer(msg.sender, shares);
-    return shares;
+
+    return pool.amountLPtoLD(_amountLP);
   }
 }

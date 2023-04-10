@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 interface ICurvePool {
+    function token() external view returns (address);
     function coins(int128) external view returns (address);
     function is_killed() external view returns (bool);
     function get_virtual_price() external view returns (uint256);

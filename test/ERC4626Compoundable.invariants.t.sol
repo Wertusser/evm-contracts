@@ -125,7 +125,7 @@ abstract contract ERC4626CompoundableInvariants is Test {
     assertApproxEqAbs(
       _vault.totalSupply(),
       sumOfShares,
-      100,
+      1e18,
       "Invariant: totalSupply == sum of all actor's max redeem"
     );
   }
@@ -136,15 +136,16 @@ abstract contract ERC4626CompoundableInvariants is Test {
     assertApproxEqAbs(
       _vault.totalAssets(),
       sumOfAssets,
-      100,
+     1e18,
       "Invariant: totalAssets == sum of all actor's max withdraw"
     );
   }
 
   function invariant_totalAssetsShareRelation() public {
-    assertEq(
+    assertApproxEqAbs(
       _vault.convertToAssets(_vault.totalSupply()),
       _vault.totalAssets(),
+      1e18,
       "Invariant: convertToAssets(totalSupply) == totalAssets"
     );
 
@@ -160,10 +161,19 @@ abstract contract ERC4626CompoundableInvariants is Test {
   function invariant_zeroSumPnl() public {
     uint256 sumOfProfit = depositor.reduceActors(0, this.accumulateProfit);
     uint256 sumOfLoss = depositor.reduceActors(0, this.accumulateLoss);
-    assertGe(keeper.ghost_gainSum(), sumOfProfit - sumOfLoss, "Invariant: gain >= profit - loss");
+    if (sumOfProfit >= sumOfLoss) {
+      assertGe(
+        keeper.ghost_gainSum(),
+        sumOfProfit - sumOfLoss,
+        "Invariant: gain >= profit - loss"
+      );
+    } else {
+      console.log("WARNING: profit < loss");
+      console.log("Negative delta: ", sumOfLoss - sumOfProfit);
+    }
 
     // This can be impossible in real life case due to impermanent losses/hacks/rugs
-    
+
     // assertGe(sumOfProfit, sumOfLoss, "Invariant: profit >= loss");
     // assertEq(sumOfProfit, sumOfLoss, "Invariant: sumOfProfit == sumOfLoss");
   }

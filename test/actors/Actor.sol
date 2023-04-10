@@ -14,6 +14,7 @@ abstract contract ActorBase is TestBase, StdCheats, StdUtils {
   mapping(bytes32 => uint256) public calls;
 
   address internal currentActor;
+  uint256 public timestamp;
 
   modifier countCall(bytes32 key) {
     calls[key]++;
@@ -25,6 +26,8 @@ abstract contract ActorBase is TestBase, StdCheats, StdUtils {
     actors.add(msg.sender);
     deal(vault.asset(), currentActor, 10 ** 18);
 
+    timestamp = block.timestamp + 1;
+    vm.warp(timestamp);
     vm.startPrank(currentActor);
     IERC20(vault.asset()).approve(address(vault), type(uint256).max);
     IERC20(vault).approve(address(vault), type(uint256).max);
@@ -34,6 +37,9 @@ abstract contract ActorBase is TestBase, StdCheats, StdUtils {
 
   modifier useActor(uint256 actorIndexSeed) {
     currentActor = actors.rand(actorIndexSeed);
+
+    timestamp = block.timestamp + 1;
+    vm.warp(timestamp);
     vm.startPrank(currentActor);
     _;
     vm.stopPrank();

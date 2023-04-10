@@ -2,22 +2,27 @@ pragma solidity ^0.8.4;
 
 import { ERC20, IERC20 } from "../../../src/periphery/ERC20.sol";
 
-import { ERC20Mock } from "../../mocks/ERC20.m.sol";
+import { ERC20Mock, WERC20Mock } from "../../mocks/ERC20.m.sol";
 import { LpPoolMock } from "../../mocks/LpPool.m.sol";
 import { ICurvePool } from "../../../src/providers/curve/external/ICurvePool.sol";
 
 contract CurvePoolMock is ICurvePool {
-  IERC20 public token0;
-  IERC20 public token1;
-  IERC20 public lpToken;
+  ERC20Mock public token0;
+  ERC20Mock public token1;
+  WERC20Mock public lpToken;
 
-  constructor(IERC20 token0_, IERC20 token1_, IERC20 lpToken_) {
+  constructor(ERC20Mock token0_, ERC20Mock token1_) {
     token0 = token0_;
     token1 = token1_;
-    lpToken = lpToken_;
+    lpToken = new WERC20Mock(token0);
+    token0.approve(address(lpToken), type(uint256).max);
   }
 
-  function coins(int128 i) external view override returns (address) {
+  function token() public view returns (address) {
+    return address(lpToken);
+  }
+
+  function coins(int128 i) public view override returns (address) {
     if (i == 0) return address(token0);
     if (i == 1) return address(token1);
     require(i <= 1);
@@ -87,7 +92,12 @@ contract CurvePoolMock is ICurvePool {
     external
     payable
     override
-  { }
+  {
+    token0.transferFrom(msg.sender, address(this), amounts[0]);
+    token1.transferFrom(msg.sender, address(this), amounts[1]);
+    uint256 amount = amounts[0] > amounts[1] ? amounts[0] : amounts[1];
+    lpToken.mint(msg.sender, amount);
+  }
 
   function remove_liquidity_imbalance(
     uint256[2] calldata amounts,
@@ -102,7 +112,11 @@ contract CurvePoolMock is ICurvePool {
   function remove_liquidity_one_coin(uint256 _token_amount, int128 i, uint256 min_amount)
     external
     override
-  { }
+  {
+    address token_ = coins(i);
+    lpToken.burn(msg.sender, _token_amount);
+    ERC20Mock(token_).transfer(msg.sender, _token_amount);
+  }
 
   function exchange(int128 from, int128 to, uint256 _from_amount, uint256 _min_to_amount)
     external
@@ -133,39 +147,54 @@ contract CurvePoolMock is ICurvePool {
     view
     override
     returns (uint256)
-  { }
+  { 
+    return _amounts[0];
+  }
 
   function calc_token_amount(uint256[] calldata _amounts, bool _is_deposit)
     external
     view
     override
     returns (uint256)
-  { }
+  { 
+    return _amounts[0];
+  }
 
   function calc_token_amount(
     address _pool,
     uint256[4] calldata _amounts,
     bool _is_deposit
-  ) external view override returns (uint256) { }
+  ) external view override returns (uint256) { 
+
+    return _amounts[0];
+  }
 
   function calc_token_amount(uint256[4] calldata _amounts, bool _is_deposit)
     external
     view
     override
     returns (uint256)
-  { }
+  { 
+
+    return _amounts[0];
+  }
 
   function calc_token_amount(uint256[3] calldata _amounts, bool _is_deposit)
     external
     view
     override
     returns (uint256)
-  { }
+  { 
+
+    return _amounts[0];
+  }
 
   function calc_withdraw_one_coin(uint256 amount, int128 i)
     external
     view
     override
     returns (uint256)
-  { }
+  { 
+    return amount;
+  }
 }

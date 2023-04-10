@@ -9,13 +9,13 @@ import "../../mocks/ERC20.m.sol";
 contract StargatePoolMock is IStargatePool {
   uint256 public poolId;
 
-  WERC20Mock public lpToken;
+  ERC20Mock public lpToken;
   ERC20Mock public underlying;
 
   constructor(uint256 poolId_, ERC20Mock underlying_) {
     poolId = poolId_;
     underlying = underlying_;
-    lpToken = new WERC20Mock(underlying);
+    lpToken = new ERC20Mock();
     underlying.approve(address(lpToken), type(uint256).max);
   }
 
@@ -45,13 +45,28 @@ contract StargatePoolMock is IStargatePool {
 
   function addLiquidity(uint256 _amountLD, address _to) external {
     underlying.transferFrom(msg.sender, address(this), _amountLD);
-    lpToken.wrap(_amountLD);
-    lpToken.transfer(_to, _amountLD);
+    lpToken.mint(_to, _amountLD);
   }
 
   function instantRedeemLocal(uint256 _amountLP, address _to) external {
-    lpToken.transferFrom(msg.sender, address(this), _amountLP);
-    lpToken.unwrap(_amountLP);
+    lpToken.burn(msg.sender, _amountLP);
     underlying.transfer(_to, _amountLP);
+  }
+
+  function balanceOf(address owner) external view override returns (uint256) {
+    return lpToken.balanceOf(owner);
+  }
+
+  function approve(address recipient, uint256 amount) external override {
+    lpToken.setAllowance(msg.sender, recipient,  amount);
+  }
+
+  function transfer(address to, uint256 amount) external {
+    transferFrom(msg.sender, to, amount);
+  }
+
+  function transferFrom(address from, address to, uint256 amount) public {
+    lpToken.burn(from, amount);
+    lpToken.mint(to, amount);
   }
 }

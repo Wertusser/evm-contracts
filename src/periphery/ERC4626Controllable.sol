@@ -14,6 +14,9 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
   bool public canDeposit;
   address public admin;
 
+  string private _name;
+  string private _symbol;
+
   uint256 private locked = 1; // Used in reentrancy check.
 
   mapping(address => uint256) public depositOf;
@@ -22,6 +25,7 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
   event DepositLimitUpdated(uint256 depositLimit);
   event Recovered(address token, uint256 amount);
   event DepositUpdated(bool canDeposit);
+  event MetadataUpdated(string name, string symbol);
 
   modifier nonReentrant() {
     require(locked == 1, "Non-reentrancy guard");
@@ -36,7 +40,7 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
     _setupRole(EMERGENCY_ROLE, admin_);
 
     depositLimit = type(uint256).max;
-    // depositLimit = 1e8;
+    // depositLimit = 1e18;
     canDeposit = true;
   }
 
@@ -46,11 +50,31 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
     emit DepositUpdated(canDeposit);
   }
 
-  function setDepositLimit(uint256 depositLimit_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setDepositLimit(uint256 depositLimit_) public onlyRole(MANAGEMENT_ROLE) {
     require(depositLimit_ >= totalAssets());
     depositLimit = depositLimit_;
 
     emit DepositLimitUpdated(depositLimit);
+  }
+
+  function setMetadata(string memory name_, string memory symbol_)
+    public
+    onlyRole(MANAGEMENT_ROLE)
+  {
+    _name = name_;
+    _symbol = symbol_;
+    
+    emit MetadataUpdated(name_, symbol_);
+  }
+
+  function recoverERC20(address tokenAddress, uint256 tokenAmount)
+    external
+    onlyRole(MANAGEMENT_ROLE)
+  {
+    require(tokenAddress != address(_asset), "Cannot withdraw the underlying token");
+    IERC20(tokenAddress).transfer(_msgSender(), tokenAmount);
+
+    emit Recovered(tokenAddress, tokenAmount);
   }
 
   function setRole(bytes32 role, address account, bool remove) internal {
@@ -67,16 +91,6 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
 
   function setEmergency(address manager, bool remove) public onlyRole(DEFAULT_ADMIN_ROLE) {
     setRole(EMERGENCY_ROLE, manager, remove);
-  }
-
-  function recoverERC20(address tokenAddress, uint256 tokenAmount)
-    external
-    onlyRole(DEFAULT_ADMIN_ROLE)
-  {
-    require(tokenAddress != address(_asset), "Cannot withdraw the underlying token");
-    IERC20(tokenAddress).transfer(_msgSender(), tokenAmount);
-    
-    emit Recovered(tokenAddress, tokenAmount);
   }
 
   /////////////////

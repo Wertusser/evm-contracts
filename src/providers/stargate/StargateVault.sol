@@ -21,8 +21,6 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   IStargateLPStaking public stargateLPStaking;
   /// @notice The stargate pool staking id
   uint256 public poolStakingId;
-  /// @notice The stargate lp asset
-  IERC20 public lpToken;
 
   /// -----------------------------------------------------------------------
   /// Initialize
@@ -34,7 +32,6 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     IStargateRouter router_,
     IStargateLPStaking staking_,
     uint256 poolStakingId_,
-    IERC20 lpToken_,
     ISwapper swapper_,
     IFeeController feesController_,
     address owner_
@@ -43,7 +40,6 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     stargateRouter = router_;
     stargateLPStaking = staking_;
     poolStakingId = poolStakingId_;
-    lpToken = lpToken_;
   }
 
   /// -----------------------------------------------------------------------
@@ -68,9 +64,15 @@ contract StargateVault is ERC4626Compoundable, WithFees {
 
     sharesAdded = this.convertToShares(assets);
 
+    _asset.approve(address(stargateRouter), assets);
+
+    uint256 lpTokensBefore = stargatePool.balanceOf(address(this));
+
     stargateRouter.addLiquidity(stargatePool.poolId(), assets, address(this));
 
-    uint256 lpTokens = lpToken.balanceOf(address(this));
+    uint256 lpTokensAfter = stargatePool.balanceOf(address(this));
+
+    uint256 lpTokens = lpTokensAfter - lpTokensBefore;
 
     stargateLPStaking.deposit(poolStakingId, lpTokens);
   }
@@ -90,7 +92,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
 
     stargateLPStaking.withdraw(poolStakingId, lpTokens);
 
-    lpToken.approve(address(stargateRouter), lpTokens);
+    stargatePool.approve(address(stargateRouter), lpTokens);
 
     return stargateRouter.instantRedeemLocal(
       uint16(stargatePool.poolId()), lpTokens, address(this)
@@ -105,20 +107,20 @@ contract StargateVault is ERC4626Compoundable, WithFees {
 
     _asset.approve(address(stargateRouter), assets);
 
-    uint256 lpTokensBefore = lpToken.balanceOf(address(this));
+    uint256 lpTokensBefore = stargatePool.balanceOf(address(this));
 
     stargateRouter.addLiquidity(stargatePool.poolId(), assets, address(this));
 
-    uint256 lpTokensAfter = lpToken.balanceOf(address(this));
+    uint256 lpTokensAfter = stargatePool.balanceOf(address(this));
 
     uint256 lpTokens = lpTokensAfter - lpTokensBefore;
 
-    lpToken.approve(address(stargateLPStaking), lpTokens);
+    stargatePool.approve(address(stargateLPStaking), lpTokens);
 
     stargateLPStaking.deposit(poolStakingId, lpTokens);
   }
 
-  function maxDeposit(address owner) public view override returns (uint256 ) {
+  function maxDeposit(address owner) public view override returns (uint256) {
     return canDeposit ? depositLimit - totalAssets() : 0;
   }
 

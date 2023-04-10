@@ -6,6 +6,7 @@ import { IStargateLPStaking } from
 import { ERC20Mock } from "../../mocks/ERC20.m.sol";
 import { StakePoolMock } from "../../mocks/StakePool.m.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
+import "forge-std/Test.sol";
 
 contract StargateLPStakingMock is IStargateLPStaking, StakePoolMock {
   ERC20Mock public lpToken;
@@ -16,6 +17,7 @@ contract StargateLPStakingMock is IStargateLPStaking, StakePoolMock {
   constructor(ERC20Mock lpToken_, ERC20Mock reward_) StakePoolMock(lpToken_, reward_) {
     lpToken = lpToken_;
     reward = reward_;
+    addRewardTokens(1000 * 1e18);
   }
 
   function userInfo(uint256 _pid, address _owner) external view returns (UserInfo memory) {
@@ -37,15 +39,16 @@ contract StargateLPStakingMock is IStargateLPStaking, StakePoolMock {
       return;
     }
     depositStake(_amount);
-    // collectRewardTokens();
+    collectRewardTokens();
   }
 
   function withdraw(uint256 _pid, uint256 _amount) external {
     if (_amount == 0) {
       return;
     }
+    collectRewardTokens();
     withdrawStake(_amount);
-    // collectRewardTokens();
+
   }
 
   function pendingStargate(uint256 _pid, address _user) public view returns (uint256) {

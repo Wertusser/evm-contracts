@@ -13,16 +13,27 @@ interface IERC20Like is IERC20 {
 
 contract ERC20Mock is ERC20("MockERC20", "MOCK", 18) {
   mapping(address => uint256) private _balances;
+  mapping(address => mapping(address => uint256)) private _allowances;
 
   function balances(address owner) public view returns (uint256) {
     return _balances[owner];
   }
+
   function mint(address to, uint256 amount) public {
     _mint(to, amount);
   }
 
   function burn(address from, uint256 amount) public {
     _burn(from, amount);
+  }
+
+  function setAllowance(address from, address to, uint256 amount) public {
+    _allowances[from][to] = amount;
+  }
+
+  function transferFrom2(address from, address to, uint256 amount) public {
+    burn(from, amount);
+    mint(to, amount);
   }
 }
 

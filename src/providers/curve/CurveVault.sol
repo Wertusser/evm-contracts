@@ -38,6 +38,7 @@ contract CurveVault is ERC4626Compoundable, WithFees {
     coins = coins_;
 
     require(pool_.coins(int128(int8(coinId))) == address(asset_));
+    require(pool_.token() == address(lpToken));
   }
 
   /// -----------------------------------------------------------------------
@@ -49,13 +50,17 @@ contract CurveVault is ERC4626Compoundable, WithFees {
   }
 
   function _harvest(IERC20 reward) internal override returns (uint256 rewardAmount) {
+    // require(curveGauge.claimable_tokens(address(this)) > 0, "Error: zero rewards to claim");
+
+    uint256 rewardBefore = reward.balanceOf(address(this));
     curveGauge.claim_rewards();
-    rewardAmount = reward.balanceOf(address(this));
+    uint256 rewardAfter = reward.balanceOf(address(this));
+    rewardAmount = rewardAfter - rewardBefore;
   }
 
   function _tend() internal override returns (uint256 wantAmount, uint256 sharesAdded) {
     wantAmount = _asset.balanceOf(address(this));
-    sharesAdded = _zapLiquidity(wantAmount);
+    sharesAdded = convertToShares(_zapLiquidity(wantAmount));
   }
 
   function beforeWithdraw(uint256 assets, uint256 /*shares*/ )
@@ -71,11 +76,11 @@ contract CurveVault is ERC4626Compoundable, WithFees {
   }
 
   function maxDeposit(address owner) public view virtual override returns (uint256) {
-    return !curvePool.is_killed() ? _asset.balanceOf(owner) : 0;
+    return !curvePool.is_killed() ? depositLimit - totalAssets(): 0;
   }
 
   function maxMint(address owner) public view virtual override returns (uint256) {
-    return !curvePool.is_killed() ? convertToShares(_asset.balanceOf(owner)) : 0;
+    return !curvePool.is_killed() ? convertToShares(depositLimit - totalAssets()) : 0;
   }
 
   function maxWithdraw(address owner) public view virtual override returns (uint256) {
@@ -110,6 +115,8 @@ contract CurveVault is ERC4626Compoundable, WithFees {
 
     uint256 lpTokens = lpToken.balanceOf(address(this));
     curveGauge.deposit(lpTokens);
+    
+    return assets;
   }
 
   function _unzapLiquidity(uint256 assets) internal returns (uint256) {
@@ -136,7 +143,7 @@ contract CurveVault is ERC4626Compoundable, WithFees {
     override
     returns (string memory vaultName)
   {
-    vaultName = string.concat("Yasp CurveFi Vault", asset_.symbol());
+    vaultName = string.concat("Yasp CurveFi Vault ", asset_.symbol());
   }
 
   function _vaultSymbol(IERC20 asset_)

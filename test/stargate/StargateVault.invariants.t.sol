@@ -14,6 +14,7 @@ import { StargateRouterMock } from "./mocks/Router.m.sol";
 import { StargateLPStakingMock } from "./mocks/LPStaking.m.sol";
 
 contract StargateVaultInvariants is ERC4626CompoundableInvariants {
+  address public owner;
   ERC20Mock public underlying;
   ERC20Mock public reward;
   StargatePoolMock public poolMock;
@@ -24,6 +25,8 @@ contract StargateVaultInvariants is ERC4626CompoundableInvariants {
   StargateVault public vault;
 
   function setUp() public {
+    owner = msg.sender;
+
     underlying = new ERC20Mock();
     reward = new ERC20Mock();
 
@@ -33,7 +36,7 @@ contract StargateVaultInvariants is ERC4626CompoundableInvariants {
       new StargateLPStakingMock(ERC20Mock(address(poolMock.lpToken())), reward);
 
     swapper = new SwapperMock(reward, underlying);
-    feesController = new FeesController(msg.sender);
+    feesController = new FeesController(owner);
 
     vault = new StargateVault(
           IIERC20(address(underlying)),
@@ -41,13 +44,17 @@ contract StargateVaultInvariants is ERC4626CompoundableInvariants {
           routerMock,
           stakingMock,
           0,
-          IIERC20(address(poolMock.lpToken())),
           swapper,
           feesController,
-          msg.sender
+          owner
         );
 
     setVault(vault, reward);
+
+    vm.startPrank(owner);
+    vault.setManager(owner, false);
+    vault.setKeeper(address(0xdeadbeef), false);
+    vm.stopPrank();
 
     excludeContract(address(underlying));
     excludeContract(address(reward));

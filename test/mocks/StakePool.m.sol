@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 import "forge-std/Test.sol";
 import "./ERC20.m.sol";
 
-contract StakePoolMock is TestBase, StdCheats, StdUtils {
+contract StakePoolMock {
   ERC20Mock public rewardsToken;
   ERC20Mock public stakingToken;
 
@@ -50,19 +50,19 @@ contract StakePoolMock is TestBase, StdCheats, StdUtils {
 
   /* ========== VIEWS ========== */
 
-  function totalSupply() public view returns (uint256) {
+  function totalSupply() public view virtual returns (uint256) {
     return _totalSupply;
   }
 
-  function balanceOf(address account) public view returns (uint256) {
+  function balanceOf(address account) public view virtual returns (uint256) {
     return _balances[account];
   }
 
-  function lastTimeRewardApplicable() public view returns (uint256) {
+  function lastTimeRewardApplicable() public view virtual returns (uint256) {
     return block.timestamp < periodFinish ? block.timestamp : periodFinish;
   }
 
-  function rewardPerToken() public view returns (uint256) {
+  function rewardPerToken() public view virtual returns (uint256) {
     if (_totalSupply == 0) {
       return rewardPerTokenStored;
     }
@@ -71,17 +71,17 @@ contract StakePoolMock is TestBase, StdCheats, StdUtils {
     return rewardPerTokenStored + rewardDelta;
   }
 
-  function pendingReward(address account) public view returns (uint256 pendingReward_) {
+  function pendingReward(address account) public view virtual returns (uint256 pendingReward_) {
     uint256 userBalance = _balances[account];
     uint256 rewardRateDiff = rewardPerToken() - userRewardPerTokenPaid[account];
     pendingReward_ = userBalance * rewardRateDiff / 1e18;
   }
 
-  function earned(address account) public view returns (uint256) {
+  function earned(address account) public view virtual returns (uint256) {
     return rewards[account] + pendingReward(account);
   }
 
-  function getRewardForDuration() external view returns (uint256) {
+  function getRewardForDuration() external view virtual returns (uint256) {
     return rewardRate * rewardsDuration;
   }
 
@@ -91,7 +91,7 @@ contract StakePoolMock is TestBase, StdCheats, StdUtils {
     // require(amount > 0, "Cannot stake 0");
     _totalSupply += amount;
     _balances[msg.sender] += amount;
-    stakingToken.transferFrom(msg.sender, address(this), amount);
+    stakingToken.transferFrom2(msg.sender, address(this), amount);
     emit Staked(msg.sender, amount);
   }
 
