@@ -27,7 +27,7 @@ contract CurveVault is ERC4626Compoundable, WithFees {
     uint8 coinId_,
     uint8 coins_,
     ISwapper swapper_,
-    IFeeController feesController_,
+    IFeesController feesController_,
     address owner_
   ) ERC4626Compoundable(asset_, swapper_, owner_) WithFees(feesController_) {
     curvePool = pool_;

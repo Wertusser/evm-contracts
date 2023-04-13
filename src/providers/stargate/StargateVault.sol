@@ -33,7 +33,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     IStargateLPStaking staking_,
     uint256 poolStakingId_,
     ISwapper swapper_,
-    IFeeController feesController_,
+    IFeesController feesController_,
     address owner_
   ) ERC4626Compoundable(asset_, swapper_, owner_) WithFees(feesController_) {
     stargatePool = pool_;
