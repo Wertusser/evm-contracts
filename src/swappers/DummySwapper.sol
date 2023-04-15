@@ -36,24 +36,4 @@ contract DummySwapper is Swapper, Ownable {
     assetFrom.transferFrom(msg.sender, receiver, amountIn);
     return 0;
   }
-
-  function _previewSwap(uint256, bytes memory) internal pure override returns (uint256) {
-    return 0;
-  }
-
-  function _swap(uint256 amountIn, uint256 minAmountOut, bytes memory payload)
-    internal
-    override
-    returns (uint256 amountOut)
-  {
-    amountOut = 0;
-  }
-
-  function _generatePayload(IERC20 assetFrom, IERC20 assetTo)
-    internal
-    view
-    virtual
-    override
-    returns (bytes memory payload)
-  { }
 }

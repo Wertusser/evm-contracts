@@ -39,39 +39,10 @@ abstract contract Swapper is ISwapper {
     public
     view
     virtual
-    returns (uint256 amountOut)
-  {
-    amountOut = _previewSwap(amountIn, _generatePayload(assetFrom, assetTo));
-  }
+    returns (uint256 amountOut);
 
   function swap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn, uint256 minAmountOut)
     public
-    virtual
-    returns (uint256 amountOut)
-  {
-    amountOut = _swap(amountIn, minAmountOut, _generatePayload(assetFrom, assetTo));
-
-    emit Swap(msg.sender, assetFrom, assetTo, amountIn, amountOut);
-  }
-
-  /// -----------------------------------------------------------------------
-  /// Internal functions
-  /// -----------------------------------------------------------------------
-
-  function _generatePayload(IERC20 assetFrom, IERC20 assetTo)
-    internal
-    view
-    virtual
-    returns (bytes memory payload);
-
-  function _previewSwap(uint256 amountIn, bytes memory payload)
-    internal
-    view
-    virtual
-    returns (uint256 amountOut);
-
-  function _swap(uint256 amountIn, uint256 minAmountOut, bytes memory payload)
-    internal
     virtual
     returns (uint256 amountOut);
 }

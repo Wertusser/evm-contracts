@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/interfaces/IERC20.sol";
 import { Swapper } from "../periphery/Swapper.sol";
+import { SafeERC20 } from "../periphery/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IUniswapV2Router02 {
@@ -31,11 +32,17 @@ contract UniV2Swapper is Swapper, Ownable {
     swapRouter = swapRouter_;
   }
 
+  function isPathDefined(IERC20 assetFrom, IERC20 assetTo) public view returns (bool) {
+    return paths[address(assetFrom)][address(assetTo)].length >= 2;
+  }
+
   function definePath(IERC20 assetFrom, IERC20 assetTo, address[] calldata path)
     external
     onlyOwner
   {
     paths[address(assetFrom)][address(assetTo)] = path;
+
+    SafeERC20.safeApprove(assetFrom, address(swapRouter), type(uint256).max);
   }
 
   function previewPath(uint256 amountIn, address[] calldata path)
@@ -47,43 +54,37 @@ contract UniV2Swapper is Swapper, Ownable {
     amountOut = amountsOut[amountsOut.length - 1];
   }
 
-  function _generatePayload(IERC20 assetFrom, IERC20 assetTo)
-    internal
-    view
-    override
-    returns (bytes memory payload)
-  {
-    address[] memory path = paths[address(assetFrom)][address(assetTo)];
-    payload = abi.encodePacked(path);
-  }
-
-  function _previewSwap(uint256 amountIn, bytes memory payload)
-    internal
+  function previewSwap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn)
+    public
     view
     override
     returns (uint256 amountOut)
   {
-    address[] memory path = abi.decode(payload, (address[]));
+    require(isPathDefined(assetFrom, assetTo), "Error: path is not defined");
+
+    address[] memory path = paths[address(assetFrom)][address(assetTo)];
 
     uint256[] memory amountsOut = swapRouter.getAmountsOut(amountIn, path);
     amountOut = amountsOut[amountsOut.length - 1];
   }
 
-  function _swap(uint256 amountIn, uint256 minAmountOut, bytes memory payload)
-    internal
+  function swap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn, uint256 minAmountOut)
+    public
     override
     returns (uint256 amountOut)
   {
-    address[] memory path = abi.decode(payload, (address[]));
+    require(isPathDefined(assetFrom, assetTo), "Error: path is not defined");
+    
+    address[] memory path = paths[address(assetFrom)][address(assetTo)];
 
-    IERC20 assetFrom = IERC20(path[0]);
-    assetFrom.transferFrom(msg.sender, address(this), amountIn);
-    assetFrom.approve(address(swapRouter), amountIn);
+    SafeERC20.safeTransferFrom(assetFrom, msg.sender, address(this), amountIn);
 
     uint256[] memory amountsOut = swapRouter.swapExactTokensForTokens(
       amountIn, minAmountOut, path, msg.sender, block.timestamp
     );
 
     amountOut = amountsOut[amountsOut.length - 1];
+
+    emit Swap(msg.sender, assetFrom, assetTo, amountIn, amountOut);
   }
 }
