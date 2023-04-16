@@ -17,7 +17,19 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
   string private _name;
   string private _symbol;
 
-  uint256 private locked = 1; // Used in reentrancy check.
+  /// @notice Used in reentrancy check.
+  uint256 private locked = 1;
+
+  /// @notice cached total amount.
+  uint256 internal storedTotalAssets;
+  /// @notice the maximum length of a rewards cycle
+  uint256 public lockPeriod = 3;
+  /// @notice the amount of rewards distributed in a the most recent cycle.
+  uint256 public lastUnlockedAssets;
+  /// @notice the effective start of the current cycle
+  uint256 public lastSync;
+  /// @notice the end of the current cycle. Will always be evenly divisible by `rewardsCycleLength`.
+  uint256 public unlockAt;
 
   mapping(address => uint256) public depositOf;
   mapping(address => uint256) public withdrawOf;
@@ -26,6 +38,8 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
   event Recovered(address token, uint256 amount);
   event DepositUpdated(bool canDeposit);
   event MetadataUpdated(string name, string symbol);
+  event Sync(uint256 unlockAt, uint256 amountWant);
+  event LockPeriodUpdated(uint256 newLockPeriod);
 
   modifier nonReentrant() {
     require(locked == 1, "Non-reentrancy guard");
@@ -42,7 +56,11 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
     depositLimit = type(uint256).max;
     // depositLimit = 1e18;
     canDeposit = true;
+
+    unlockAt = (block.timestamp / lockPeriod) * lockPeriod;
   }
+
+  /////// Vault settings
 
   function toggle() public onlyRole(EMERGENCY_ROLE) {
     canDeposit = !canDeposit;
@@ -63,19 +81,18 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
   {
     _name = name_;
     _symbol = symbol_;
-    
+
     emit MetadataUpdated(name_, symbol_);
   }
 
-  function recoverERC20(address tokenAddress, uint256 tokenAmount)
-    external
-    onlyRole(MANAGEMENT_ROLE)
-  {
-    require(tokenAddress != address(_asset), "Cannot withdraw the underlying token");
-    IERC20(tokenAddress).transfer(_msgSender(), tokenAmount);
+  function setLockPeriod(uint256 _lockPeriod) public onlyRole(MANAGEMENT_ROLE) {
+    lockPeriod = _lockPeriod;
 
-    emit Recovered(tokenAddress, tokenAmount);
+    emit LockPeriodUpdated(lockPeriod);
   }
+
+
+  /////// Roles functions
 
   function setRole(bytes32 role, address account, bool remove) internal {
     if (remove) {
@@ -95,6 +112,16 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
 
   /////////////////
 
+  function totalAssets() public view override returns (uint256) {
+    if (block.timestamp >= unlockAt) {
+      return storedTotalAssets + lastUnlockedAssets;
+    }
+
+    uint256 unlockedAssets =
+      (lastUnlockedAssets * (block.timestamp - lastSync)) / (unlockAt - lastSync);
+    return storedTotalAssets + unlockedAssets;
+  }
+
   function pnl(address user) public view returns (int256) {
     uint256 totalDeposited = depositOf[user];
     uint256 totalWithdraw = withdrawOf[user] + this.maxWithdraw(user);
@@ -102,9 +129,39 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
     return int256(totalWithdraw) - int256(totalDeposited);
   }
 
+  ////////////////
+
+  function recoverERC20(address tokenAddress, uint256 tokenAmount)
+    external
+    onlyRole(MANAGEMENT_ROLE)
+  {
+    require(tokenAddress != address(_asset), "Cannot withdraw the underlying token");
+    IERC20(tokenAddress).transfer(msg.sender, tokenAmount);
+
+    emit Recovered(tokenAddress, tokenAmount);
+  }
+
+  function sync() public virtual {
+    require(block.timestamp >= unlockAt, "some earings is still locked");
+
+    uint256 nextUnlockedAssets = _totalAssets() - storedTotalAssets - lastUnlockedAssets;
+    uint256 end = ((block.timestamp + lockPeriod) / lockPeriod) * lockPeriod;
+
+    storedTotalAssets += lastUnlockedAssets;
+    lastUnlockedAssets = nextUnlockedAssets;
+    lastSync = block.timestamp;
+    unlockAt = end;
+
+    emit Sync(end, nextUnlockedAssets);
+  }
+
+  ////////////////
+
+  function _totalAssets() internal view virtual returns (uint256 assets);
   /**
    * @dev Deposit/mint common workflow.
    */
+
   function _deposit(address caller, address receiver, uint256 assets, uint256 shares)
     internal
     virtual
@@ -117,6 +174,7 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
     _mint(receiver, shares);
 
     depositOf[receiver] += assets;
+    storedTotalAssets += assets;
 
     emit Deposit(caller, receiver, assets, shares);
   }
@@ -139,6 +197,7 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
     _asset.transfer(receiver, assets);
 
     withdrawOf[receiver] += assets;
+    storedTotalAssets -= assets;
 
     emit Withdraw(caller, receiver, owner, assets, shares);
   }

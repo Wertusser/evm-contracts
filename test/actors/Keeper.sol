@@ -3,12 +3,15 @@ pragma solidity ^0.8.13;
 import "forge-std/Test.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 import { IERC4626 } from "../../src/periphery/ERC4626.sol";
-import { IERC4626Compoundable } from "../../src/periphery/ERC4626Compoundable.sol";
+import {
+  ERC4626Compoundable,
+  IERC4626Compoundable
+} from "../../src/periphery/ERC4626Compoundable.sol";
 import { ActorBase } from "./Actor.sol";
 
 contract Keeper is ActorBase {
   address public KEEPER = address(0xdeadbeef);
-  IERC4626Compoundable public vaultCompoundable;
+  ERC4626Compoundable public vaultCompoundable;
   IERC20 public reward;
 
   uint256 public ghost_gainSum;
@@ -28,7 +31,7 @@ contract Keeper is ActorBase {
   constructor(IERC4626Compoundable _vault, IERC20 reward_)
     ActorBase(IERC4626(address(_vault)))
   {
-    vaultCompoundable = _vault;
+    vaultCompoundable = ERC4626Compoundable(address(_vault));
     reward = reward_;
   }
 
@@ -44,14 +47,18 @@ contract Keeper is ActorBase {
 
   // Core ERC4262Compoundable methods
 
-  function harvestTend(uint256 expectedOut) public useKeeper countCall("harvestTend") {
+  function harvestTendSync(uint256 expectedOut) public useKeeper countCall("harvestTend") {
     expectedOut = bound(expectedOut, 0, 10 * 1e18);
-    uint256 gain = vaultCompoundable.harvest(reward, expectedOut);
+    (, uint256 gain) = vaultCompoundable.harvest(reward, expectedOut);
     if (gain == 0) {
       ghost_zeroGain += 1;
     } else {
       ghost_gainSum += gain;
       vaultCompoundable.tend();
+    }
+
+    if (block.timestamp > vaultCompoundable.unlockAt()) {
+      vaultCompoundable.sync();
     }
   }
 }

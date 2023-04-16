@@ -44,7 +44,7 @@ contract CurveVault is ERC4626Compoundable, WithFees {
   /// -----------------------------------------------------------------------
   /// ERC4626 overrides
   /// -----------------------------------------------------------------------
-  function totalAssets() public view override returns (uint256) {
+  function _totalAssets() internal view override returns (uint256) {
     uint256 lpTokens = curveGauge.balanceOf(address(this));
     return curvePool.calc_withdraw_one_coin(lpTokens, int128(int8(coinId)));
   }

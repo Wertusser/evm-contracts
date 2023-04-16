@@ -21,7 +21,7 @@ contract DeployScript is Script {
   IERC20 DAI = IERC20(address(0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1));
   IERC20 FRAX = IERC20(address(0x17FC002b466eEc40DaE837Fc4bE5c67993ddBd6F));
 
-  uint256 AMOUNT = 10 ** 18;
+  uint256 AMOUNT = 1000 * 10 ** 18;
 
   IUniswapV3Factory factory =
     IUniswapV3Factory(address(0x1F98431c8aD98523631AE4a59f267346ea31F984));

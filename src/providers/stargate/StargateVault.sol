@@ -46,7 +46,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   /// ERC4626 overrides
   /// -----------------------------------------------------------------------
 
-  function totalAssets() public view virtual override returns (uint256) {
+  function _totalAssets() internal view virtual override returns (uint256) {
     IStargateLPStaking.UserInfo memory info =
       stargateLPStaking.userInfo(poolStakingId, address(this));
     return stargatePool.amountLPtoLD(info.amount);

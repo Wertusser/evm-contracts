@@ -10,36 +10,34 @@ interface IERC4626Compoundable {
   function setSwapper(ISwapper nextSwapper) external;
   function expectedReturns(uint256 timestamp) external view returns (uint256);
 
-  function harvest(IERC20 reward, uint256 swapAmountOut) external returns (uint256);
-  function tend() external returns (uint256);
+  function harvest(IERC20 reward, uint256 swapAmountOut)
+    external
+    returns (uint256, uint256);
+  function tend() external returns (uint256, uint256);
 }
 
 abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllable {
   /// @notice Swapper contract
   ISwapper public swapper;
-  ///@notice total earned amount. Value changes after every tend() call
+  /// @notice total earned amount, used only for expectedReturns()
   uint256 public totalEarned;
-  ///@notice block timestamp of last tend() call
-  uint256 public compoundAt;
-  ///@notice block timestamp of contract creation
-  uint256 public createdAt;
+  /// @notice timestamp of last tend() call
+  uint256 public lastTend;
+  /// @notice creation timestamp.
+  uint256 public created;
 
   bytes32 public constant KEEPER_ROLE = keccak256("KEEPER_ROLE");
 
-
-
-  event Harvest(address indexed executor, uint256 amountReward, uint256 amountWant);
-  event Tend(address indexed executor, uint256 amountWant, uint256 amountShares);
+  event Harvest(uint256 amountReward, uint256 amountWant);
+  event Tend(uint256 amountWant, uint256 feesAmount);
   event SwapperUpdated(address newSwapper);
 
-  constructor(
-    IERC20 asset_,
-    ISwapper swapper_,
-    address admin_
-  ) ERC4626Controllable(asset_, admin_) {
+  constructor(IERC20 asset_, ISwapper swapper_, address admin_)
+    ERC4626Controllable(asset_, admin_)
+  {
     swapper = swapper_;
-    createdAt = block.timestamp;
-    compoundAt = block.timestamp;
+    lastTend = block.timestamp;
+    created = block.timestamp;
   }
 
   function setKeeper(address account, bool remove) public onlyRole(MANAGEMENT_ROLE) {
@@ -53,13 +51,10 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
   }
 
   function expectedReturns(uint256 timestamp) public view virtual returns (uint256) {
-    require(timestamp >= compoundAt, "Unexpected timestamp");
-    uint256 timeElapsed = timestamp - compoundAt;
+    require(timestamp >= unlockAt, "Unexpected timestamp");
 
-    uint256 totalTime = compoundAt - createdAt;
-
-    if (totalTime > 0) {
-      return totalEarned * timeElapsed / totalTime;
+    if (lastTend > created) {
+      return totalEarned * (timestamp - lastTend) / (lastTend - created);
     } else {
       return 0;
     }
@@ -68,9 +63,9 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
   function harvest(IERC20 reward, uint256 swapAmountOut)
     public
     onlyRole(KEEPER_ROLE)
-    returns (uint256 wantAmount)
+    returns (uint256 rewardAmount, uint256 wantAmount)
   {
-    uint256 rewardAmount = _harvest(reward);
+    rewardAmount = _harvest(reward);
 
     if (rewardAmount > 0) {
       wantAmount = swapper.swap(reward, _asset, rewardAmount, swapAmountOut);
@@ -78,19 +73,22 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
       wantAmount = 0;
     }
 
-    emit Harvest(msg.sender, rewardAmount, wantAmount);
+    emit Harvest(rewardAmount, wantAmount);
   }
 
-  function tend() public onlyRole(KEEPER_ROLE) returns (uint256 sharesAdded) {
-    (uint256 wantAmount, uint256 sharesAdded_) = _tend();
-    sharesAdded = sharesAdded_;
+  function tend()
+    public
+    onlyRole(KEEPER_ROLE)
+    returns (uint256 wantAmount, uint256 feesAmount)
+  {
+    (wantAmount, feesAmount) = _tend();
 
     totalEarned += wantAmount;
-    compoundAt = block.timestamp;
+    lastTend = block.timestamp;
 
-    emit Tend(msg.sender, wantAmount, sharesAdded);
+    emit Tend(wantAmount, feesAmount);
   }
 
   function _harvest(IERC20 reward) internal virtual returns (uint256 rewardAmount);
-  function _tend() internal virtual returns (uint256 wantAmount, uint256 sharesAdded);
+  function _tend() internal virtual returns (uint256 wantAmount, uint256 feesAmount);
 }

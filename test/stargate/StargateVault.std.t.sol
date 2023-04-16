@@ -63,22 +63,22 @@ contract StargateVaultStdTest is ERC4626Test {
   function testFail_harvestNotKeeper(address caller) public {
     vm.assume(caller != owner);
     vm.prank(caller);
-    uint256 amountOut = vault.harvest(reward, 1);
+    (uint256 amountOut,) = vault.harvest(reward, 1);
   }
 
   function testFail_tendNotKeeper(address caller) public {
     vm.assume(caller != owner);
     vm.prank(caller);
-    uint256 amountOut = vault.tend();
+    (uint256 amountOut,) = vault.tend();
   }
 
   function test_harvest() public {
     vm.prank(owner);
-    uint256 amountOut = vault.harvest(reward, 10 ** reward.decimals());
+    (,uint256 amountOut) = vault.harvest(reward, 10 ** reward.decimals());
   }
 
   function test_tend() public {
     vm.prank(owner);
-    uint256 amountOut = vault.tend();
+    (,uint256 amountOut) = vault.tend();
   }
 }

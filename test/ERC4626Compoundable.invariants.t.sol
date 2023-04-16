@@ -28,7 +28,7 @@ abstract contract ERC4626CompoundableInvariants is Test {
     depositorSelector[4] = Depositor.approve.selector;
     depositorSelector[5] = Depositor.transfer.selector;
     depositorSelector[6] = Depositor.transferFrom.selector;
-    keeperSelector[0] = Keeper.harvestTend.selector;
+    keeperSelector[0] = Keeper.harvestTendSync.selector;
 
     targetSelector(
       FuzzSelector({ addr: address(depositor), selectors: depositorSelector })

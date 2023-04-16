@@ -72,7 +72,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
   /// -----------------------------------------------------------------------
   /// ERC4626 overrides
   /// -----------------------------------------------------------------------
-  function totalAssets() public view virtual override returns (uint256) {
+  function _totalAssets() internal view virtual override returns (uint256) {
     // aTokens use rebasing to accrue interest, so the total assets is just the aToken balance
     return aToken.balanceOf(address(this));
   }

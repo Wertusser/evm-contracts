@@ -13,7 +13,9 @@ import { StargateVault } from "../../src/providers/stargate/StargateVault.sol";
 
 contract DeployScript is Script {
   IERC20 STG = IERC20(address(0x6694340fc020c5E6B96567843da2df01b2CE1eb6));
-  IERC20 HOP = IERC20(address(0xc5102fE9359FD9a28f877a67E36B0F050d81a3CC));
+  // IERC20 HOP = IERC20(address(0xc5102fE9359FD9a28f877a67E36B0F050d81a3CC));
+  // IERC20 CRV = IERC20(address(0xc5102fE9359FD9a28f877a67E36B0F050d81a3CC));
+  // IERC20 SYN = IERC20(address(0xc5102fE9359FD9a28f877a67E36B0F050d81a3CC));
 
   IERC20 WETH = IERC20(address(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1));
   IERC20 USDC = IERC20(address(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8));
@@ -21,7 +23,7 @@ contract DeployScript is Script {
   IERC20 DAI = IERC20(address(0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1));
   IERC20 FRAX = IERC20(address(0x17FC002b466eEc40DaE837Fc4bE5c67993ddBd6F));
 
-  uint256 AMOUNT = 10 ** 18;
+  uint256 AMOUNT = 10 * 10 ** 18;
 
   IUniswapV3Factory factory =
     IUniswapV3Factory(address(0x1F98431c8aD98523631AE4a59f267346ea31F984));
@@ -76,51 +78,51 @@ contract DeployScript is Script {
 
     /// HOPS swaps
 
-    path = new address[](3);
-    path[0] = address(HOP);
-    path[1] = address(WETH);
-    path[2] = address(USDC);
+    // path = new address[](3);
+    // path[0] = address(HOP);
+    // path[1] = address(WETH);
+    // path[2] = address(USDC);
 
-    fee = new uint24[](2);
-    fee[0] = 10000;
-    fee[1] = 500;
+    // fee = new uint24[](2);
+    // fee[0] = 10000;
+    // fee[1] = 500;
 
-    console2.log("HOP -> USDC:", deployed.previewPath(AMOUNT, path, fee));
-    deployed.definePath(path, fee);
+    // console2.log("HOP -> USDC:", deployed.previewPath(AMOUNT, path, fee));
+    // deployed.definePath(path, fee);
 
-    path = new address[](3);
-    path[0] = address(HOP);
-    path[1] = address(WETH);
-    path[2] = address(USDT);
+    // path = new address[](3);
+    // path[0] = address(HOP);
+    // path[1] = address(WETH);
+    // path[2] = address(USDT);
 
-    fee = new uint24[](2);
-    fee[0] = 10000;
-    fee[1] = 500;
+    // fee = new uint24[](2);
+    // fee[0] = 10000;
+    // fee[1] = 500;
 
-    console2.log("HOP -> USDT:", deployed.previewPath(AMOUNT, path, fee));
-    deployed.definePath(path, fee);
+    // console2.log("HOP -> USDT:", deployed.previewPath(AMOUNT, path, fee));
+    // deployed.definePath(path, fee);
 
-    path = new address[](3);
-    path[0] = address(HOP);
-    path[1] = address(WETH);
-    path[2] = address(DAI);
+    // path = new address[](3);
+    // path[0] = address(HOP);
+    // path[1] = address(WETH);
+    // path[2] = address(DAI);
 
-    fee = new uint24[](2);
-    fee[0] = 10000;
-    fee[1] = 500;
+    // fee = new uint24[](2);
+    // fee[0] = 10000;
+    // fee[1] = 500;
 
-    console2.log("HOP -> DAI:", deployed.previewPath(AMOUNT, path, fee));
-    deployed.definePath(path, fee);
+    // console2.log("HOP -> DAI:", deployed.previewPath(AMOUNT, path, fee));
+    // deployed.definePath(path, fee);
 
-    path = new address[](2);
-    path[0] = address(HOP);
-    path[1] = address(WETH);
+    // path = new address[](2);
+    // path[0] = address(HOP);
+    // path[1] = address(WETH);
 
-    fee = new uint24[](1);
-    fee[0] = 10000;
+    // fee = new uint24[](1);
+    // fee[0] = 10000;
 
-    console2.log("HOP -> WETH:", deployed.previewPath(AMOUNT, path, fee));
-    deployed.definePath(path, fee);
+    // console2.log("HOP -> WETH:", deployed.previewPath(AMOUNT, path, fee));
+    // deployed.definePath(path, fee);
 
     // StargateVault vault =
     //   StargateVault(address(0x364F0dd479942D9a9B4a63C0b2b1700F31c9ae0B));
