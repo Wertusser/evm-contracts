@@ -59,10 +59,10 @@ contract UniV3Swapper is Swapper, Ownable {
     require(path.length - 1 == fee.length, "Error: invalid path payload");
     require(path.length >= 2, "Error: invalid path length");
 
-    bytes memory payload = abi.encode(path[0]);
+    bytes memory payload = abi.encodePacked(path[0]);
 
     for (uint256 i = 0; i < fee.length; i++) {
-      bytes.concat(payload, bytes3(fee[i]), bytes20(path[i + 1]));
+      payload = abi.encodePacked(payload, fee[i], path[i + 1]);
     }
 
     amountOut = _previewSwap(amountIn, payload);
@@ -137,10 +137,10 @@ contract UniV3Swapper is Swapper, Ownable {
     address[] memory path = paths[address(assetFrom)][address(assetTo)];
     uint24[] memory fee = fees[address(assetFrom)][address(assetTo)];
 
-    payload = abi.encode(path[0]);
+    payload = abi.encodePacked(path[0]);
 
     for (uint256 i = 0; i < fee.length; i++) {
-      bytes.concat(payload, bytes3(fee[i]), bytes20(path[i + 1]));
+      payload = abi.encodePacked(payload, fee[i], path[i + 1]);
     }
   }
 

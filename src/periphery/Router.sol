@@ -6,24 +6,11 @@ import { IERC4626Compoundable } from "./ERC4626Compoundable.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 
 contract Router is Multicall {
-  constructor() { }
-
-  function harvest(address vault, address reward, uint256 minAmountOut)
-    public
-    returns (uint256 wantAmount)
-  {
-    wantAmount = IERC4626Compoundable(vault).harvest(IERC20(reward), minAmountOut);
+  function fundERC20(IERC20 asset, uint256 amount) public {
+    asset.transferFrom(msg.sender, address(this), amount);
   }
 
-  function tend(address vault) public {
-    IERC4626Compoundable(vault).tend();
-  }
-
-  function harvestTend(address vault, address reward, uint256 minAmountOut)
-    public
-    returns (uint256 wantAmount)
-  {
-    wantAmount = harvest(vault, reward, minAmountOut);
-    tend(vault);
+  function sweepERC20(IERC20 asset, uint256 amount) public {
+    asset.transfer(msg.sender, amount);
   }
 }
