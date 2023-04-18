@@ -43,7 +43,7 @@ forge test -vvv --match-contract StargateVaultStdTest # runs only prop tests for
 
 ### Optimism
 
-* [Aave V3 Vault Factory](https://optimistic.etherscan.io/0xd847253c30502af5ae84275c52f24b438fdd9fe7)
+* [Aave V3 Vault Factory](https://optimistic.etherscan.io/address/0xd847253c30502af5ae84275c52f24b438fdd9fe7)
 * [Aave V3 WETH Vault](https://optimistic.etherscan.io/address/0xe0a6da34e1fdd8b0e678010b57bbbb90d9544dfa)
 * [Aave V3 DAI Vault](https://optimistic.etherscan.io/address/0x85c6cd5fc71af35e6941d7b53564ac0a68e09f5c)
 * [Aave V3 USDT Vault](https://optimistic.etherscan.io/address/0x672b5984274e2a7ad18dfa7c871201d249ca147d)
