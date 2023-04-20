@@ -8,6 +8,7 @@ import "./Swapper.sol";
 
 abstract contract ERC4626Controllable is ERC4626, AccessControl {
   bytes32 public constant MANAGEMENT_ROLE = keccak256("MANAGEMENT_ROLE");
+  bytes32 public constant SWEEPER_ROLE = keccak256("SWEEPER_ROLE");
   bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
 
   uint256 public depositLimit;
@@ -91,7 +92,6 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
     emit LockPeriodUpdated(lockPeriod);
   }
 
-
   /////// Roles functions
 
   function setRole(bytes32 role, address account, bool remove) internal {
@@ -108,6 +108,10 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
 
   function setEmergency(address manager, bool remove) public onlyRole(DEFAULT_ADMIN_ROLE) {
     setRole(EMERGENCY_ROLE, manager, remove);
+  }
+
+  function setSweeper(address sweeper, bool remove) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    setRole(SWEEPER_ROLE, sweeper, remove);
   }
 
   /////////////////
@@ -131,14 +135,25 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
 
   ////////////////
 
-  function recoverERC20(address tokenAddress, uint256 tokenAmount)
+  function sweep(address tokenAddress, uint256 tokenAmount)
     external
-    onlyRole(MANAGEMENT_ROLE)
+    onlyRole(SWEEPER_ROLE)
   {
     require(tokenAddress != address(_asset), "Cannot withdraw the underlying token");
     IERC20(tokenAddress).transfer(msg.sender, tokenAmount);
 
     emit Recovered(tokenAddress, tokenAmount);
+  }
+
+  function sweepETH(address payable receiver, uint256 amount)
+    external
+    payable
+    onlyRole(SWEEPER_ROLE)
+  {
+    (bool s,) = receiver.call{ value: amount }("");
+    require(s, "ETH transfer failed");
+
+    emit Recovered(address(0), amount);
   }
 
   function sync() public virtual {

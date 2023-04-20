@@ -17,6 +17,10 @@ contract CurveRouter is Router {
     address gauge;
   }
 
+  constructor(IWETH weth) Router(weth) {
+
+  }
+
   function addLiquidity(uint256[] memory assets, CurveContext memory context) public { }
   function removeLiquidity(uint256 lpAmount, CurveContext memory context) public { }
 

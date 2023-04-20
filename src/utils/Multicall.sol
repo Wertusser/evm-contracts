@@ -9,8 +9,6 @@ interface IMulticall {
     function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);
 }
 
-/// @title Multicall contract
-/// @author Uniswap Foundation (https://github.com/Uniswap/v3-periphery/blob/main/contracts/base/Multicall.sol)
 abstract contract Multicall is IMulticall {
     /// @inheritdoc IMulticall
     function multicall(bytes[] calldata data) public payable override returns (bytes[] memory results) {
