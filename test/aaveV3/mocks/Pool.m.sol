@@ -1,7 +1,7 @@
 pragma solidity ^0.8.4;
 
-import { ERC20, IERC20 } from "../../../src/periphery/ERC20.sol";
-
+import { ERC20 } from "solmate/tokens/ERC20.sol";
+import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 import { ERC20Mock, WERC20Mock } from "../../mocks/ERC20.m.sol";
 import { LpPoolMock } from "../../mocks/LpPool.m.sol";
 import { IPool } from "../../../src/providers/aaveV3/external/IPool.sol";
@@ -13,7 +13,7 @@ contract PoolMock is IPool {
 
   constructor(ERC20Mock asset_) {
     asset = asset_;
-    aToken = new WERC20Mock(asset);
+    aToken = new WERC20Mock(IERC20(address(asset)));
     reserveAToken[address(asset)] = address(aToken);
 
     asset.approve(address(aToken), type(uint256).max);

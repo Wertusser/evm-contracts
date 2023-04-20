@@ -40,9 +40,13 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
     _;
   }
 
-  constructor(IERC20 asset_, ISwapper swapper_, address admin_)
-    ERC4626Controllable(asset_, admin_)
-  {
+  constructor(
+    IERC20 asset_,
+    string memory _name,
+    string memory _symbol,
+    ISwapper swapper_,
+    address admin_
+  ) ERC4626Controllable(asset_, _name, _symbol, admin_) {
     swapper = swapper_;
     lastTend = block.timestamp;
     created = block.timestamp;
@@ -78,7 +82,8 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
     rewardAmount = _harvest(reward);
 
     if (rewardAmount > 0) {
-      wantAmount = swapper.swap(reward, _asset, rewardAmount, swapAmountOut);
+      wantAmount =
+        swapper.swap(reward, IERC20(address(asset)), rewardAmount, swapAmountOut);
     } else {
       wantAmount = 0;
     }

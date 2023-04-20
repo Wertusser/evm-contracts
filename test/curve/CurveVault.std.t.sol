@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-import "erc4626-tests/ERC4626.test.sol";
-import { IERC20 as IIERC20 } from "forge-std/interfaces/IERC20.sol";
+import { ERC4626Test } from "erc4626-tests/ERC4626.test.sol";
+import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 
 import { CurvePoolMock } from "./mocks/CurvePool.m.sol";
 import { CurveGaugeMock } from "./mocks/CurveGauge.m.sol";
@@ -31,7 +31,7 @@ contract CurveVaultStdTest is ERC4626Test {
     feesController = new FeesController(msg.sender);
 
     vault = new CurveVault(
-        IIERC20(underlying),
+        IERC20(address(underlying)),
         pool,
         gauge,
         0,

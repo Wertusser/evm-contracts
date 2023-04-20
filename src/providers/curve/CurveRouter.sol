@@ -10,15 +10,15 @@ import { ICurvePool } from "./external/ICurvePool.sol";
 import { ICurveGauge, ICurveMinter } from "./external/ICurveGauge.sol";
 import "forge-std/interfaces/IERC20.sol";
 
-contract CurveRouter is Router {
+contract CurveRouter {
   struct CurveContext {
     address pool;
     address gauge;
   }
 
-  constructor(IWETH weth) Router(weth) {
+  // constructor(IWETH weth) Router(weth) {
 
-  }
+  // }
 
   function addLiquidity(uint256[] memory assets, CurveContext memory context) public { }
   function removeLiquidity(uint256 lpAmount, CurveContext memory context) public { }

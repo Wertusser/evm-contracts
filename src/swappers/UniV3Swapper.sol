@@ -10,13 +10,11 @@ import { IUniswapV3Factory } from
   "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "forge-std/interfaces/IERC20.sol";
 import { Swapper } from "../periphery/Swapper.sol";
-import { SafeERC20 } from "../periphery/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-
+import "solmate/auth/Owned.sol";
 interface IUniswapV3Router is ISwapRouter, IPeripheryImmutableState { }
 
 /// Uniswap V3 Swapper
-contract UniV3Swapper is Swapper, Ownable {
+contract UniV3Swapper is Swapper, Owned {
   using Path for bytes;
 
   IUniswapV3Factory public immutable swapFactory;
@@ -29,7 +27,7 @@ contract UniV3Swapper is Swapper, Ownable {
 
   constructor(IUniswapV3Factory swapFactory_, IUniswapV3Router swapRouter_)
     Swapper()
-    Ownable()
+    Owned(msg.sender)
   {
     swapFactory = swapFactory_;
     swapRouter = swapRouter_;
@@ -114,9 +112,9 @@ contract UniV3Swapper is Swapper, Ownable {
   {
     (address tokenA,,) = payload.decodeFirstPool();
 
-    SafeERC20.safeTransferFrom(IERC20(tokenA), msg.sender, address(this), amountIn);
+    IERC20(tokenA).transferFrom(msg.sender, address(this), amountIn);
 
-    SafeERC20.safeApprove(IERC20(tokenA), address(swapRouter), amountIn);
+    IERC20(tokenA).approve(address(swapRouter), amountIn);
 
     ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
       path: payload,

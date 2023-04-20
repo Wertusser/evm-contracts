@@ -2,7 +2,7 @@
 
 // import 'forge-std/Script.sol';
 
-// import {ERC20} from '../../src/periphery/ERC20.sol';
+// import { ERC20 } from "solmate/tokens/ERC20.sol";;
 
 // import {IPool} from '../../src/providers/aaveV3/external/IPool.sol';
 // import {IRewardsController} from '../../src/providers/aaveV3/external/IRewardsController.sol';

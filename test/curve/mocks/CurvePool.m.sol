@@ -1,7 +1,7 @@
 pragma solidity ^0.8.4;
 
-import { ERC20, IERC20 } from "../../../src/periphery/ERC20.sol";
-
+import { ERC20 } from "solmate/tokens/ERC20.sol";
+import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 import { ERC20Mock, WERC20Mock } from "../../mocks/ERC20.m.sol";
 import { LpPoolMock } from "../../mocks/LpPool.m.sol";
 import { ICurvePool } from "../../../src/providers/curve/external/ICurvePool.sol";
@@ -14,7 +14,7 @@ contract CurvePoolMock is ICurvePool {
   constructor(ERC20Mock token0_, ERC20Mock token1_) {
     token0 = token0_;
     token1 = token1_;
-    lpToken = new WERC20Mock(token0);
+    lpToken = new WERC20Mock(IERC20(address(token0)));
     token0.approve(address(lpToken), type(uint256).max);
   }
 

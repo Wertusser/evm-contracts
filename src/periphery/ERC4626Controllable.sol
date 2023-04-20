@@ -5,6 +5,7 @@ import "solmate/auth/Owned.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 import { IERC4626 } from "forge-std/interfaces/IERC4626.sol";
 import { ERC4626 } from "solmate/mixins/ERC4626.sol";
+import { ERC20 } from "solmate/tokens/ERC20.sol";
 import "./Swapper.sol";
 
 abstract contract ERC4626Controllable is ERC4626, Owned {
@@ -44,7 +45,10 @@ abstract contract ERC4626Controllable is ERC4626, Owned {
     locked = 1;
   }
 
-  constructor(IERC20 asset_, address admin_) ERC4626(asset_) Owned(admin_) {
+  constructor(IERC20 asset_, string memory _name, string memory _symbol, address admin_)
+    ERC4626(ERC20(address(asset_)), _name, _symbol)
+    Owned(admin_)
+  {
     depositLimit = type(uint256).max;
     // depositLimit = 1e18;
     canDeposit = true;
@@ -102,7 +106,7 @@ abstract contract ERC4626Controllable is ERC4626, Owned {
   ////////////////
 
   function sweep(address tokenAddress, uint256 tokenAmount) external onlyOwner {
-    require(tokenAddress != address(asset()), "Cannot withdraw the underlying token");
+    require(tokenAddress != address(asset), "Cannot withdraw the underlying token");
     IERC20(tokenAddress).transfer(msg.sender, tokenAmount);
 
     emit Recovered(tokenAddress, tokenAmount);
@@ -120,7 +124,7 @@ abstract contract ERC4626Controllable is ERC4626, Owned {
 
     uint256 lastTotalAssets = storedTotalAssets + lastUnlockedAssets;
     uint256 totalAssets_ = _totalAssets();
-    
+
     require(totalAssets_ >= lastTotalAssets, "Error: vault have lose");
 
     uint256 nextUnlockedAssets = totalAssets_ - lastTotalAssets;
@@ -140,44 +144,4 @@ abstract contract ERC4626Controllable is ERC4626, Owned {
   /**
    * @dev Deposit/mint common workflow.
    */
-
-  function _deposit(address caller, address receiver, uint256 assets, uint256 shares)
-    internal
-    virtual
-    override
-  {
-    require(canDeposit, "Error: deposits is currently paused");
-    require(totalAssets() + assets <= depositLimit, "Error: deposit overflow");
-
-    IERC20(asset()).transferFrom(caller, address(this), assets);
-    _mint(receiver, shares);
-
-    depositOf[receiver] += assets;
-    storedTotalAssets += assets;
-
-    emit Deposit(caller, receiver, assets, shares);
-  }
-
-  /**
-   * @dev Withdraw/redeem common workflow.
-   */
-  function _withdraw(
-    address caller,
-    address receiver,
-    address owner,
-    uint256 assets,
-    uint256 shares
-  ) internal virtual override {
-    if (caller != owner) {
-      _spendAllowance(owner, caller, shares);
-    }
-
-    _burn(owner, shares);
-    IERC20(asset()).transfer(receiver, assets);
-
-    withdrawOf[receiver] += assets;
-    storedTotalAssets -= assets;
-
-    emit Withdraw(caller, receiver, owner, assets, shares);
-  }
 }

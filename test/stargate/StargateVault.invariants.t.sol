@@ -49,11 +49,10 @@ contract StargateVaultInvariants is ERC4626CompoundableInvariants {
           owner
         );
 
-    setVault(vault, reward);
+    setVault(IERC4626(address(vault)), IERC20(address(reward)));
 
     vm.startPrank(owner);
-    vault.setManager(owner, false);
-    vault.setKeeper(address(0xdeadbeef), false);
+    vault.setKeeper(address(0xdeadbeef));
     vm.stopPrank();
 
     excludeContract(address(underlying));

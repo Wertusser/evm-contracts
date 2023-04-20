@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-import "erc4626-tests/ERC4626.test.sol";
-
+import {ERC4626Test} from "erc4626-tests/ERC4626.test.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import { PoolMock } from "./mocks/Pool.m.sol";
 import { ERC20Mock, WERC20Mock } from "../mocks/ERC20.m.sol";
 import { IPool } from "../../src/providers/aaveV3/external/IPool.sol";
@@ -14,7 +14,7 @@ import { IRewardsController } from
 
 import { ISwapper } from "../../src/periphery/Swapper.sol";
 import { FeesController } from "../../src/periphery/FeesController.sol";
-import {SwapperMock} from "../mocks/Swapper.m.sol";
+import { SwapperMock } from "../mocks/Swapper.m.sol";
 
 contract AaveV3VaultStdTest is ERC4626Test {
   address public constant rewardRecipient = address(0x01);
@@ -30,26 +30,31 @@ contract AaveV3VaultStdTest is ERC4626Test {
   FeesController public feesController;
 
   function setUp() public override {
+    address treasury = address(0xDEADDEAD);
+    address owner = address(0xBEEFBEEF);
+
     aave = new ERC20Mock();
     underlying = new ERC20Mock();
-    aToken = new WERC20Mock(underlying);
     lendingPool = new PoolMock(underlying);
     rewardsController =
       new RewardsControllerMock(address(lendingPool.aToken()), address(aave));
 
     swapper = new SwapperMock(aave, underlying);
-    feesController = new FeesController(msg.sender);
-
+    feesController = new FeesController(treasury);
 
     vault = new AaveV3Vault(
-      underlying,
-      aToken,
+      IERC20(address(underlying)),
+      IERC20(address(lendingPool.aToken())),
       lendingPool,
       rewardsController,
       swapper,
       feesController,
-      msg.sender
+      owner
     );
+
+    vm.startPrank(owner);
+    vault.setKeeper(address(0xdeadbeef));
+    vm.stopPrank();
 
     // for ERC4626Test setup
     _underlying_ = address(underlying);

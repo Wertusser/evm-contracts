@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
-import "@openzeppelin/contracts/security/Pausable.sol";
 import "../../periphery/ERC4626Compoundable.sol";
 import "../../periphery/FeesController.sol";
 import "../../periphery/ERC4626Compoundable.sol";
@@ -29,7 +28,10 @@ contract CurveVault is ERC4626Compoundable, WithFees {
     ISwapper swapper_,
     IFeesController feesController_,
     address owner_
-  ) ERC4626Compoundable(asset_, swapper_, owner_) WithFees(feesController_) {
+  )
+    ERC4626Compoundable(asset_, _vaultName(asset_), _vaultSymbol(asset_), swapper_, owner_)
+    WithFees(feesController_)
+  {
     curvePool = pool_;
     curveGauge = gauge_;
     lpToken = IERC20(gauge_.lp_token());
@@ -59,42 +61,38 @@ contract CurveVault is ERC4626Compoundable, WithFees {
   }
 
   function _tend() internal override returns (uint256 wantAmount, uint256 sharesAdded) {
-    wantAmount = _asset.balanceOf(address(this));
+    wantAmount = asset.balanceOf(address(this));
     sharesAdded = convertToShares(_zapLiquidity(wantAmount));
   }
 
-  function beforeWithdraw(uint256 assets, uint256 /*shares*/ )
-    internal
-    override
-    returns (uint256)
-  {
-    return _unzapLiquidity(assets);
+  function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal override {
+    _unzapLiquidity(assets);
   }
 
   function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal override {
     _zapLiquidity(assets);
   }
 
-  function maxDeposit(address owner) public view virtual override returns (uint256) {
-    return !curvePool.is_killed() ? depositLimit - totalAssets(): 0;
+  function maxDeposit(address) public view virtual override returns (uint256) {
+    return !curvePool.is_killed() ? depositLimit - totalAssets() : 0;
   }
 
-  function maxMint(address owner) public view virtual override returns (uint256) {
+  function maxMint(address) public view virtual override returns (uint256) {
     return !curvePool.is_killed() ? convertToShares(depositLimit - totalAssets()) : 0;
   }
 
-  function maxWithdraw(address owner) public view virtual override returns (uint256) {
+  function maxWithdraw(address owner_) public view virtual override returns (uint256) {
     if (curvePool.is_killed()) return 0;
-    uint256 totalLiquidity = _asset.balanceOf(address(curvePool));
-    uint256 assetsBalance = convertToAssets(this.balanceOf(owner));
+    uint256 totalLiquidity = asset.balanceOf(address(curvePool));
+    uint256 assetsBalance = convertToAssets(this.balanceOf(owner_));
     return totalLiquidity < assetsBalance ? totalLiquidity : assetsBalance;
   }
 
-  function maxRedeem(address owner) public view virtual override returns (uint256) {
+  function maxRedeem(address owner_) public view virtual override returns (uint256) {
     if (curvePool.is_killed()) return 0;
-    uint256 totalLiquidity = _asset.balanceOf(address(curvePool));
+    uint256 totalLiquidity = asset.balanceOf(address(curvePool));
     uint256 totalLiquidityInShares = convertToShares(totalLiquidity);
-    uint256 shareBalance = this.balanceOf(owner);
+    uint256 shareBalance = this.balanceOf(owner_);
     return totalLiquidityInShares < shareBalance ? totalLiquidityInShares : shareBalance;
   }
 
@@ -106,7 +104,7 @@ contract CurveVault is ERC4626Compoundable, WithFees {
     /// -----------------------------------------------------------------------
     /// Add liquidity into Curve
     /// -----------------------------------------------------------------------
-    _asset.approve(address(curvePool), assets);
+    asset.approve(address(curvePool), assets);
 
     uint256[] memory amounts = new uint256[](coins);
     amounts[coinId] = assets;
@@ -115,7 +113,7 @@ contract CurveVault is ERC4626Compoundable, WithFees {
 
     uint256 lpTokens = lpToken.balanceOf(address(this));
     curveGauge.deposit(lpTokens);
-    
+
     return assets;
   }
 
@@ -137,21 +135,11 @@ contract CurveVault is ERC4626Compoundable, WithFees {
   /// ERC20 metadata generation
   /// -----------------------------------------------------------------------
 
-  function _vaultName(IERC20 asset_)
-    internal
-    view
-    override
-    returns (string memory vaultName)
-  {
+  function _vaultName(IERC20 asset_) internal view returns (string memory vaultName) {
     vaultName = string.concat("Yasp CurveFi Vault ", asset_.symbol());
   }
 
-  function _vaultSymbol(IERC20 asset_)
-    internal
-    view
-    override
-    returns (string memory vaultSymbol)
-  {
+  function _vaultSymbol(IERC20 asset_) internal view returns (string memory vaultSymbol) {
     vaultSymbol = string.concat("ycvx`", asset_.symbol());
   }
 }

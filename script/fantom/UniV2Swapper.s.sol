@@ -2,7 +2,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 
-import { ERC20 } from "../../src/periphery/ERC20.sol";
+import { ERC20 } from "solmate/tokens/ERC20.sol";
 import "forge-std/interfaces/IERC20.sol";
 import { UniV2Swapper, IUniswapV2Router02 } from "../../src/swappers/UniV2Swapper.sol";
 import { StargateVault } from "../../src/providers/stargate/StargateVault.sol";

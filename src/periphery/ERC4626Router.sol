@@ -7,11 +7,6 @@ import "../utils/SelfPermit.sol";
 import { IERC4626, IERC4626Compoundable } from "./ERC4626Compoundable.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 
-interface IWETH is IERC20 {
-  function deposit() external payable;
-  function withdraw(uint256 weth) external;
-}
-
 interface IERC2612 is IERC20 {
   function permit(
     address owner,
@@ -30,7 +25,7 @@ contract ERC4626Router is Multicall, PeripheryPayments, SelfPermit {
   IERC20 constant NATIVE_TOKEN = IERC20(address(0));
   uint8 internal _entered = 1;
 
-  IWETH public immutable WETH;
+  IWETH9 public immutable WETH;
 
   modifier nonReentrant() {
     require(_entered == 1, "Error: reentrant call");
@@ -39,43 +34,52 @@ contract ERC4626Router is Multicall, PeripheryPayments, SelfPermit {
     _entered = 1;
   }
 
-  constructor(IWETH weth) PeripheryPayments(weth) {
+  constructor(IWETH9 weth) PeripheryPayments(weth) {
     WETH = weth;
   }
 
-  function depositVault(IERC4626 vault, uint256 assets, address receiver)
+  function mintVault(IERC4626 vault, address to, uint256 shares, uint256 maxAmountIn)
     public
-    nonReentrant
-    returns (uint256 shares)
+    payable
+    returns (uint256 amountIn)
   {
-    IERC20(vault.asset()).approve(address(vault), assets);
-    shares = vault.deposit(assets, receiver);
+    require(
+      (amountIn = vault.mint(shares, to)) > maxAmountIn,
+      "Error: amountIn exceed max amount"
+    );
   }
 
-  function mintVault(IERC4626 vault, uint256 shares, address receiver)
+  function depositVault(IERC4626 vault, address to, uint256 amount, uint256 minSharesOut)
     public
-    nonReentrant
-    returns (uint256 assets)
+    payable
+    returns (uint256 sharesOut)
   {
-    IERC20(vault.asset()).approve(address(vault), vault.convertToShares(assets));
-
-    assets = vault.mint(shares, receiver);
+    require(
+      (sharesOut = vault.deposit(amount, to)) < minSharesOut,
+      "Error: sharesOut exceed min shares amount"
+    );
   }
 
-  function withdrawVault(IERC4626 vault, uint256 assets, address receiver)
+  function withdrawVault(IERC4626 vault, address to, uint256 amount, uint256 maxSharesOut)
     public
-    nonReentrant
-    returns (uint256 shares)
+    payable
+    returns (uint256 sharesOut)
   {
-    shares = vault.withdraw(assets, receiver, address(this));
+    require(
+      (sharesOut = vault.withdraw(amount, to, msg.sender)) > maxSharesOut,
+      "Error: sharesOut exceed max shares amount"
+    );
   }
 
-  function redeemVault(IERC4626 vault, uint256 shares, address receiver)
+  function redeemVault(IERC4626 vault, address to, uint256 shares, uint256 minAmountOut)
     public
-    nonReentrant
-    returns (uint256 assets)
+    payable
+    returns (uint256 amountOut)
   {
-    assets = vault.redeem(shares, receiver, address(this));
+    require(
+      (amountOut = vault.redeem(shares, to, msg.sender)) < minAmountOut,
+      "Error: amountOut exceed min amount"
+    );
   }
 
   function depositToVault(
@@ -83,9 +87,9 @@ contract ERC4626Router is Multicall, PeripheryPayments, SelfPermit {
     address to,
     uint256 amount,
     uint256 minSharesOut
-  ) external payable override returns (uint256 sharesOut) {
+  ) external payable returns (uint256 sharesOut) {
     pullToken(ERC20(vault.asset()), amount, address(this));
-    return deposit(vault, to, amount, minSharesOut);
+    return depositVault(vault, to, amount, minSharesOut);
   }
 
   function withdrawToDeposit(
@@ -95,9 +99,9 @@ contract ERC4626Router is Multicall, PeripheryPayments, SelfPermit {
     uint256 amount,
     uint256 maxSharesIn,
     uint256 minSharesOut
-  ) external payable override returns (uint256 sharesOut) {
-    withdraw(fromVault, address(this), amount, maxSharesIn);
-    return deposit(toVault, to, amount, minSharesOut);
+  ) external payable returns (uint256 sharesOut) {
+    withdrawVault(fromVault, address(this), amount, maxSharesIn);
+    return depositVault(toVault, to, amount, minSharesOut);
   }
 
   function redeemToDeposit(
@@ -106,16 +110,15 @@ contract ERC4626Router is Multicall, PeripheryPayments, SelfPermit {
     address to,
     uint256 shares,
     uint256 minSharesOut
-  ) external payable override returns (uint256 sharesOut) {
+  ) external payable returns (uint256 sharesOut) {
     // amount out passes through so only one slippage check is needed
-    uint256 amount = redeem(fromVault, address(this), shares, 0);
-    return deposit(toVault, to, amount, minSharesOut);
+    uint256 amount = redeemVault(fromVault, address(this), shares, 0);
+    return depositVault(toVault, to, amount, minSharesOut);
   }
 
   function depositMax(IERC4626 vault, address to, uint256 minSharesOut)
     public
     payable
-    override
     returns (uint256 sharesOut)
   {
     ERC20 asset = ERC20(vault.asset());
@@ -123,18 +126,17 @@ contract ERC4626Router is Multicall, PeripheryPayments, SelfPermit {
     uint256 maxDeposit = vault.maxDeposit(to);
     uint256 amount = maxDeposit < assetBalance ? maxDeposit : assetBalance;
     pullToken(asset, amount, address(this));
-    return deposit(vault, to, amount, minSharesOut);
+    return depositVault(vault, to, amount, minSharesOut);
   }
 
   function redeemMax(IERC4626 vault, address to, uint256 minAmountOut)
     public
     payable
-    override
     returns (uint256 amountOut)
   {
     uint256 shareBalance = vault.balanceOf(msg.sender);
     uint256 maxRedeem = vault.maxRedeem(msg.sender);
     uint256 amountShares = maxRedeem < shareBalance ? maxRedeem : shareBalance;
-    return redeem(vault, to, amountShares, minAmountOut);
+    return redeemVault(vault, to, amountShares, minAmountOut);
   }
 }

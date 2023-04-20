@@ -3,8 +3,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/interfaces/IERC20.sol";
 import { Swapper } from "../periphery/Swapper.sol";
-import { SafeERC20 } from "../periphery/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "solmate/auth/Owned.sol";
 
 interface IUniswapV2Router02 {
   function factory() external pure returns (address);
@@ -23,12 +22,12 @@ interface IUniswapV2Router02 {
 }
 
 /// Uniswap V2 Swapper
-contract UniV2Swapper is Swapper, Ownable {
+contract UniV2Swapper is Swapper, Owned {
   IUniswapV2Router02 public immutable swapRouter;
 
   mapping(address => mapping(address => address[])) public paths;
 
-  constructor(IUniswapV2Router02 swapRouter_) Swapper() Ownable() {
+  constructor(IUniswapV2Router02 swapRouter_) Swapper() Owned(msg.sender) {
     swapRouter = swapRouter_;
   }
 
@@ -42,7 +41,7 @@ contract UniV2Swapper is Swapper, Ownable {
   {
     paths[address(assetFrom)][address(assetTo)] = path;
 
-    SafeERC20.safeApprove(assetFrom, address(swapRouter), type(uint256).max);
+    assetFrom.approve(address(swapRouter), type(uint256).max);
   }
 
   function previewPath(uint256 amountIn, address[] calldata path)
@@ -74,10 +73,10 @@ contract UniV2Swapper is Swapper, Ownable {
     returns (uint256 amountOut)
   {
     require(isPathDefined(assetFrom, assetTo), "Error: path is not defined");
-    
+
     address[] memory path = paths[address(assetFrom)][address(assetTo)];
 
-    SafeERC20.safeTransferFrom(assetFrom, msg.sender, address(this), amountIn);
+    assetFrom.transferFrom(msg.sender, address(this), amountIn);
 
     uint256[] memory amountsOut = swapRouter.swapExactTokensForTokens(
       amountIn, minAmountOut, path, msg.sender, block.timestamp

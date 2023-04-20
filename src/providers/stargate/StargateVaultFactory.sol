@@ -4,8 +4,8 @@ pragma solidity ^0.8.13;
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 import { StargateVault } from "./StargateVault.sol";
 import { ERC4626Factory } from "../../periphery/ERC4626Factory.sol";
-import { ERC4626 } from "../../periphery/ERC4626.sol";
-import { ERC20 } from "../../periphery/ERC20.sol";
+import { ERC4626 } from "solmate/mixins/ERC4626.sol";
+import { ERC20 } from "solmate/tokens/ERC20.sol";
 import "./external/IStargateLPStaking.sol";
 import "./external/IStargateRouter.sol";
 import "./external/IStargatePool.sol";
@@ -121,7 +121,7 @@ contract StargateVaultFactory is ERC4626Factory {
     }
 
     vault = ERC4626(
-      _computeCreate2Address(
+      computeCreate2Address(
         keccak256(
           abi.encodePacked(
             // Deployment bytecode:

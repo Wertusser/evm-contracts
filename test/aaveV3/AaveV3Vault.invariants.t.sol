@@ -38,8 +38,8 @@ contract AaveV3VaultInvariants is ERC4626CompoundableInvariants {
     feesController = new FeesController(treasury);
 
     vault = new AaveV3Vault(
-      underlying,
-      lendingPool.aToken(),
+      IERC20(address(underlying)),
+      IERC20(address(lendingPool.aToken())),
       lendingPool,
       rewardsController,
       swapper,
@@ -47,11 +47,10 @@ contract AaveV3VaultInvariants is ERC4626CompoundableInvariants {
       owner
     );
 
-    setVault(vault, aave);
+    setVault(IERC4626(address(vault)), IERC20(address(aave)));
 
     vm.startPrank(owner);
-    vault.setManager(owner, false);
-    vault.setKeeper(address(0xdeadbeef), false);
+    vault.setKeeper(address(0xdeadbeef));
     vm.stopPrank();
 
     excludeContract(address(factory));

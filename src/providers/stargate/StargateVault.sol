@@ -35,7 +35,10 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     ISwapper swapper_,
     IFeesController feesController_,
     address owner_
-  ) ERC4626Compoundable(asset_, swapper_, owner_) WithFees(feesController_) {
+  )
+    ERC4626Compoundable(asset_, _vaultName(asset_), _vaultSymbol(asset_), swapper_, owner_)
+    WithFees(feesController_)
+  {
     stargatePool = pool_;
     stargateRouter = router_;
     stargateLPStaking = staking_;
@@ -59,12 +62,12 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   }
 
   function _tend() internal override returns (uint256 wantAmount, uint256 sharesAdded) {
-    uint256 assets = _asset.balanceOf(address(this));
+    uint256 assets = asset.balanceOf(address(this));
     (, wantAmount) = payFees(assets, "harvest");
 
     sharesAdded = this.convertToShares(assets);
 
-    _asset.approve(address(stargateRouter), assets);
+    asset.approve(address(stargateRouter), assets);
 
     uint256 lpTokensBefore = stargatePool.balanceOf(address(this));
 
@@ -77,12 +80,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     stargateLPStaking.deposit(poolStakingId, lpTokens);
   }
 
-  function beforeWithdraw(uint256 assets, uint256 /*shares*/ )
-    internal
-    virtual
-    override
-    returns (uint256)
-  {
+  function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal override {
     /// -----------------------------------------------------------------------
     /// Withdraw assets from Stargate
     /// -----------------------------------------------------------------------
@@ -94,7 +92,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
 
     stargatePool.approve(address(stargateRouter), lpTokens);
 
-    return stargateRouter.instantRedeemLocal(
+    stargateRouter.instantRedeemLocal(
       uint16(stargatePool.poolId()), lpTokens, address(this)
     );
   }
@@ -105,7 +103,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     /// -----------------------------------------------------------------------
     // (, assets) = payFees(assets, "deposit");
 
-    _asset.approve(address(stargateRouter), assets);
+    asset.approve(address(stargateRouter), assets);
 
     uint256 lpTokensBefore = stargatePool.balanceOf(address(this));
 
@@ -120,28 +118,28 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     stargateLPStaking.deposit(poolStakingId, lpTokens);
   }
 
-  function maxDeposit(address owner) public view override returns (uint256) {
+  function maxDeposit(address) public view override returns (uint256) {
     return canDeposit ? depositLimit - totalAssets() : 0;
   }
 
-  function maxMint(address owner) public view override returns (uint256) {
+  function maxMint(address) public view override returns (uint256) {
     return canDeposit ? convertToShares(depositLimit - totalAssets()) : 0;
   }
 
-  function maxWithdraw(address owner) public view override returns (uint256) {
-    uint256 cash = _asset.balanceOf(address(stargatePool));
+  function maxWithdraw(address owner_) public view override returns (uint256) {
+    uint256 cash = asset.balanceOf(address(stargatePool));
 
-    uint256 assetsBalance = convertToAssets(this.balanceOf(owner));
+    uint256 assetsBalance = convertToAssets(this.balanceOf(owner_));
 
     return cash < assetsBalance ? cash : assetsBalance;
   }
 
-  function maxRedeem(address owner) public view override returns (uint256) {
-    uint256 cash = _asset.balanceOf(address(stargatePool));
+  function maxRedeem(address owner_) public view override returns (uint256) {
+    uint256 cash = asset.balanceOf(address(stargatePool));
 
     uint256 cashInShares = convertToShares(cash);
 
-    uint256 shareBalance = this.balanceOf(owner);
+    uint256 shareBalance = this.balanceOf(owner_);
 
     return cashInShares < shareBalance ? cashInShares : shareBalance;
   }
@@ -172,7 +170,6 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   function _vaultName(IERC20 asset_)
     internal
     view
-    override
     returns (string memory vaultName)
   {
     vaultName = string.concat("Yasp Stargate Vault ", asset_.symbol());
@@ -181,7 +178,6 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   function _vaultSymbol(IERC20 asset_)
     internal
     view
-    override
     returns (string memory vaultSymbol)
   {
     vaultSymbol = string.concat("ystg", asset_.symbol());

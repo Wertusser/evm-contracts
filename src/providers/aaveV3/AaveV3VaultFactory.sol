@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
-import { ERC20, IERC20 } from "../../periphery/ERC20.sol";
-import { ERC4626 } from "../../periphery/ERC4626.sol";
-
+import { ERC20 } from "solmate/tokens/ERC20.sol";
+import { ERC4626 } from "solmate/mixins/ERC4626.sol";
 import { IPool } from "./external/IPool.sol";
 import { AaveV3Vault } from "./AaveV3Vault.sol";
 import { ERC4626Factory } from "../../periphery/ERC4626Factory.sol";
@@ -71,8 +70,8 @@ contract AaveV3VaultFactory is ERC4626Factory {
     }
 
     vault = new AaveV3Vault{salt: bytes32(0)}(
-      asset,
-      ERC20(aTokenAddress),
+      IERC20(address(asset)),
+      IERC20(address(aTokenAddress)),
       lendingPool,
       rewardsController,
       swapper,
@@ -94,7 +93,7 @@ contract AaveV3VaultFactory is ERC4626Factory {
     address aTokenAddress = reserveData.aTokenAddress;
 
     vault = ERC4626(
-      _computeCreate2Address(
+      computeCreate2Address(
         keccak256(
           abi.encodePacked(
             // Deployment bytecode:

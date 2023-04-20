@@ -1,7 +1,6 @@
 pragma solidity ^0.8.13;
 
 import "../ERC4626Compoundable.invariants.t.sol";
-
 import { ERC20Mock } from "../mocks/ERC20.m.sol";
 import { SwapperMock } from "../mocks/Swapper.m.sol";
 import { CurveVault } from "../../src/providers/curve/CurveVault.sol";
@@ -33,7 +32,7 @@ contract CurveVaultInvariants is ERC4626CompoundableInvariants {
     feesController = new FeesController(address(0xdeaddead));
 
     vault = new CurveVault(
-        IERC20(underlying),
+        IERC20(address(underlying)),
         pool,
         gauge,
         0,
@@ -43,11 +42,10 @@ contract CurveVaultInvariants is ERC4626CompoundableInvariants {
         owner
     );
 
-    setVault(vault, reward);
+    setVault(IERC4626(address(vault)), IERC20(address(reward)));
 
     vm.startPrank(owner);
-    vault.setManager(owner, false);
-    vault.setKeeper(address(0xdeadbeef), false);
+    vault.setKeeper(address(0xdeadbeef));
     vm.stopPrank();
 
     excludeContract(address(underlying));
