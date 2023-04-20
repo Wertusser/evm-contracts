@@ -60,30 +60,14 @@ contract StargateVaultFactory is ERC4626Factory {
   /// -----------------------------------------------------------------------
   /// External functions
   /// -----------------------------------------------------------------------
-  function createERC4626(ERC20 asset) external override returns (ERC4626 vault) {
-    revert StargateVaultFactory__Deprecated();
-  }
-
-  function computeERC4626Address(ERC20 asset)
-    external
-    view
-    override
-    returns (ERC4626 vault)
-  {
-    revert StargateVaultFactory__Deprecated();
-  }
-
-  function createERC4626_(uint256 poolId, uint256 stakingId)
+  function createERC4626(IERC20 asset, uint256 poolId, uint256 stakingId)
     external
     returns (ERC4626 vault)
   {
     IStargatePool pool = stargateFactory.getPool(poolId);
-    IERC20 asset = IERC20(pool.token());
+    require(address(asset) == pool.token(), "Error: invalid asset");
+    
     IERC20 lpToken = IERC20(address(pool));
-
-    if (address(asset) == address(0)) {
-      revert StargateVaultFactory__PoolNonexistent();
-    }
 
     if (lpToken != stargateLPStaking.poolInfo(stakingId).lpToken) {
       revert StargateVaultFactory__StakingNonexistent();
@@ -103,18 +87,16 @@ contract StargateVaultFactory is ERC4626Factory {
     emit CreateERC4626(ERC20(address(asset)), vault);
   }
 
-  function computeERC4626Address_(uint256 poolId, uint256 stakingId)
+  function computeERC4626Address(IERC20 asset, uint256 poolId, uint256 stakingId)
     external
     view
     returns (ERC4626 vault)
   {
     IStargatePool pool = stargateFactory.getPool(poolId);
-    IERC20 asset = IERC20(pool.token());
-    IERC20 lpToken = IERC20(address(pool));
 
-    if (address(asset) == address(0)) {
-      revert StargateVaultFactory__PoolNonexistent();
-    }
+    require(asset == IERC20(pool.token()), "Error: invalid asset");
+
+    IERC20 lpToken = IERC20(address(pool));
 
     if (lpToken != stargateLPStaking.poolInfo(stakingId).lpToken) {
       revert StargateVaultFactory__StakingNonexistent();

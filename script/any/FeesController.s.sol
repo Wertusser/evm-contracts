@@ -10,9 +10,9 @@ contract DeployScript is Script {
         uint256 deployerPrivateKey = uint256(vm.envBytes32('PRIVATE_KEY'));
 
         vm.startBroadcast(deployerPrivateKey);
-
-        console2.log('broadcaster', vm.addr(deployerPrivateKey));
-        deployed = new FeesController(address(0));
+        address broadcaster = vm.addr(deployerPrivateKey);
+        console2.log('broadcaster', broadcaster);
+        deployed = new FeesController(broadcaster);
 
         vm.stopBroadcast();
     }

@@ -24,8 +24,8 @@ contract SwapperMock is Swapper {
     ERC20Mock tokenFrom = aToB ? token0 : token1;
     ERC20Mock tokenTo = aToB ? token1 : token0;
     tokenFrom.burn(msg.sender, amountIn);
-    tokenTo.mint(msg.sender, minAmountOut);
-    return minAmountOut;
+    tokenTo.mint(msg.sender, amountIn);
+    return amountIn;
   }
 
   function previewSwap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn)

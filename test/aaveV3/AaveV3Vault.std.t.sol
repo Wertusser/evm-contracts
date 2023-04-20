@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-import {ERC4626Test} from "erc4626-tests/ERC4626.test.sol";
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import { ERC4626Test } from "erc4626-tests/ERC4626.test.sol";
+import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 import { PoolMock } from "./mocks/Pool.m.sol";
 import { ERC20Mock, WERC20Mock } from "../mocks/ERC20.m.sol";
 import { IPool } from "../../src/providers/aaveV3/external/IPool.sol";
@@ -51,6 +51,10 @@ contract AaveV3VaultStdTest is ERC4626Test {
       feesController,
       owner
     );
+
+    feesController.setFee(address(vault), "harvest", 2500);
+    feesController.setFee(address(vault), "deposit", 2500);
+    feesController.setFee(address(vault), "withdraw", 2500);
 
     vm.startPrank(owner);
     vault.setKeeper(address(0xdeadbeef));

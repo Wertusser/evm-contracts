@@ -15,27 +15,24 @@ import { StargateVaultFactory } from
 import { StargateVault } from "../../src/providers/stargate/StargateVault.sol";
 
 contract DeployScript is Script {
-  IERC20 public USDC = IERC20(address(0x04068DA6C83AFCFA0e13ba15A6696662335D5B75));
-  IERC20 public STG = IERC20(address(0x2F6F07CDcf3588944Bf4C42aC74ff24bF56e7590));
   address public ADMIN = address(0x777BcC85d91EcE0C641a6F03F35a2A98F4049777);
+  IERC20 public STG = IERC20(address(0x2F6F07CDcf3588944Bf4C42aC74ff24bF56e7590));
+
+  IERC20 public WETH = IERC20(address(0x82CbeCF39bEe528B5476FE6d1550af59a9dB6Fc0));
+  IERC20 public USDC = IERC20(address(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8));
+  IERC20 public USDT = IERC20(address(0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9));
+  IERC20 public DAI = IERC20(address(0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1));
+  IERC20 public FRAX = IERC20(address(0x17FC002b466eEc40DaE837Fc4bE5c67993ddBd6F));
 
   function deployForPool(
-    string memory name,
+    IERC20 asset,
     uint256 poolId,
     uint256 stakingId,
-    IERC20 reward,
-    StargateVaultFactory deployed
+    StargateVaultFactory factory
   ) public payable returns (address vault) {
-    deployed.createERC4626_(poolId, stakingId);
-    vault = address(deployed.computeERC4626Address_(poolId, stakingId));
-
-    USDC.approve(vault, 10 ** 6);
-
-    console2.log("USDC balance", USDC.balanceOf(ADMIN));
-    uint256 shares = StargateVault(vault).deposit(10 ** 6, ADMIN);
-    IERC20(vault).approve(vault, shares / 10);
-    StargateVault(vault).withdraw(shares / 10, ADMIN, ADMIN);
-    console2.log(name, "-", vault);
+    factory.createERC4626(asset, poolId, stakingId);
+    vault = address(factory.computeERC4626Address(asset, poolId, stakingId));
+    console2.log(asset.name(), "-", vault);
   }
 
   function run() public payable returns (StargateVaultFactory deployed) {
@@ -46,17 +43,18 @@ contract DeployScript is Script {
     console2.log("broadcaster", broadcaster);
 
     deployed = new StargateVaultFactory(
-          IStargateFactory(address(0x9d1B1669c73b033DFe47ae5a0164Ab96df25B944)),
-          IStargateRouter(address(0xAf5191B0De278C7286d6C7CC6ab6BB8A73bA2Cd6)),
-          IStargateLPStaking(address(0x224D8Fd7aB6AD4c6eb4611Ce56EF35Dec2277F03)),
+          IStargateFactory(address(0x55bDb4164D28FBaF0898e0eF14a589ac09Ac9970)),
+          IStargateRouter(address(0x53Bf833A5d6c4ddA888F69c22C88C9f356a41614)),
+          IStargateLPStaking(address(0xeA8DfEE1898a7e0a59f7527F076106d7e44c2176)),
           FeesController(address(0x9D2AcB1D33eb6936650Dafd6e56c9B2ab0Dd680c)),
           ISwapper(address(0x85a5F96a3a8dE92E1187516B8F27c29F265362f1)),
-          ADMIN
+          broadcaster
         );
-    // deployed = StargateVaultFactory(address());
-    // Investments deploy
 
-    deployForPool("USDC", 1, 0, STG, deployed);
+    deployForPool(USDC, 1, 0, deployed);
+    deployForPool(USDT, 2, 1, deployed);
+    deployForPool(WETH, 13, 2, deployed);
+    deployForPool(FRAX, 7, 3, deployed);
 
     vm.stopBroadcast();
   }

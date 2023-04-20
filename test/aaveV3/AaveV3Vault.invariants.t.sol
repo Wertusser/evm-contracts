@@ -25,7 +25,6 @@ contract AaveV3VaultInvariants is ERC4626CompoundableInvariants {
   FeesController public feesController;
 
   function setUp() public {
-    address treasury = address(0xDEADDEAD);
     address owner = address(0xBEEFBEEF);
 
     aave = new ERC20Mock();
@@ -35,8 +34,7 @@ contract AaveV3VaultInvariants is ERC4626CompoundableInvariants {
       new RewardsControllerMock(address(lendingPool.aToken()), address(aave));
 
     swapper = new SwapperMock(aave, underlying);
-    feesController = new FeesController(treasury);
-
+    feesController = new FeesController(owner);
     vault = new AaveV3Vault(
       IERC20(address(underlying)),
       IERC20(address(lendingPool.aToken())),
@@ -47,6 +45,9 @@ contract AaveV3VaultInvariants is ERC4626CompoundableInvariants {
       owner
     );
 
+    feesController.setFee(address(vault), "harvest", 2500);
+    feesController.setFee(address(vault), "deposit", 2500);
+    feesController.setFee(address(vault), "withdraw", 2500);
     setVault(IERC4626(address(vault)), IERC20(address(aave)));
 
     vm.startPrank(owner);

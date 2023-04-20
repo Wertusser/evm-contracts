@@ -6,6 +6,11 @@ import "forge-std/interfaces/IERC20.sol";
 import { IERC4626 } from "forge-std/interfaces/IERC4626.sol";
 
 interface IFeesController {
+  function getFee(address vault, string memory feeType)
+    external
+    view
+    returns (uint24 feeBps);
+
   function collectFee(uint256 amount, string memory feeType)
     external
     returns (uint256 feesAmount, uint256 restAmount);
@@ -59,6 +64,14 @@ contract FeesController is IFeesController, Owned {
   function treasury(address vault) public view returns (address) {
     address result = _treasuries[vault];
     return result != address(0) ? result : fallbackTreasury;
+  }
+
+  function getFee(address vault, string memory feeType)
+    public
+    view
+    returns (uint24 feeBps)
+  {
+    return feesConfig[vault][feeType];
   }
 
   function setFallbackTreasury(address nextTreasury) external onlyOwner {

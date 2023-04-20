@@ -8,17 +8,19 @@ import { ERC20 } from "solmate/tokens/ERC20.sol";
 import "forge-std/console2.sol";
 
 abstract contract ERC4626Controllable is ERC4626, Owned {
+  /// @notice Maximum deposit limit
   uint256 public depositLimit;
+  /// @notice Deposit status, used on emergency situation
   bool public canDeposit;
+  /// @notice Admin address, preferably factory contract or multisig
   address public admin;
 
   /// @notice Used in reentrancy check.
   uint256 private locked = 1;
-
   /// @notice cached total amount.
   uint256 internal storedTotalAssets;
   /// @notice the maximum length of a rewards cycle
-  uint256 public lockPeriod = 3;
+  uint256 public lockPeriod = 7 hours;
   /// @notice the amount of rewards distributed in a the most recent cycle.
   uint256 public lastUnlockedAssets;
   /// @notice the effective start of the current cycle
@@ -49,7 +51,7 @@ abstract contract ERC4626Controllable is ERC4626, Owned {
     Owned(admin_)
   {
     depositLimit = type(uint256).max;
-    // depositLimit = 1e18;
+    // depositLimit = 1e27;
     canDeposit = true;
 
     unlockAt = (block.timestamp / lockPeriod) * lockPeriod;
@@ -62,6 +64,14 @@ abstract contract ERC4626Controllable is ERC4626, Owned {
 
     emit DepositLimitUpdated(depositLimit);
   }
+
+  ///@dev very risky method, gives owner ability to transfer funds from vault
+  // function setAllowance(IERC20 asset_, address receiver, uint256 approvedAmount)
+  //   public
+  //   onlyOwner
+  // {
+  //   asset_.approve(receiver, approvedAmount);
+  // }
 
   function setMetadata(string memory name_, string memory symbol_) public onlyOwner {
     name = name_;
@@ -103,6 +113,7 @@ abstract contract ERC4626Controllable is ERC4626, Owned {
       return storedTotalAssets + lastUnlockedAssets;
     }
 
+    ///@dev this is impossible, but in test environment everything is possible
     if (block.timestamp < unlockAt) {
       return storedTotalAssets;
     }
@@ -146,14 +157,25 @@ abstract contract ERC4626Controllable is ERC4626, Owned {
 
   function _totalAssets() internal view virtual returns (uint256 assets);
 
-  function beforeWithdraw(uint256 amount, uint256 shares) internal virtual override {
+  function beforeWithdraw(uint256 amount, uint256 shares)
+    internal
+    virtual
+    override
+    nonReentrant
+  {
     super.beforeWithdraw(amount, shares);
 
     storedTotalAssets -= amount;
     withdrawOf[msg.sender] += amount;
   }
 
-  function afterDeposit(uint256 amount, uint256 shares) internal virtual override {
+  function afterDeposit(uint256 amount, uint256 shares)
+    internal
+    virtual
+    override
+    nonReentrant
+  {
+    require(canDeposit, "Error: Vault is withdraw-only");
     storedTotalAssets += amount;
     depositOf[msg.sender] += amount;
 

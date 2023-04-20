@@ -62,7 +62,7 @@ contract AaveV3VaultFactory is ERC4626Factory {
   /// External functions
   /// -----------------------------------------------------------------------
 
-  function createERC4626(ERC20 asset) external virtual override returns (ERC4626 vault) {
+  function createERC4626(ERC20 asset) external virtual returns (ERC4626 vault) {
     IPool.ReserveData memory reserveData = lendingPool.getReserveData(address(asset));
     address aTokenAddress = reserveData.aTokenAddress;
     if (aTokenAddress == address(0)) {
@@ -86,7 +86,6 @@ contract AaveV3VaultFactory is ERC4626Factory {
     external
     view
     virtual
-    override
     returns (ERC4626 vault)
   {
     IPool.ReserveData memory reserveData = lendingPool.getReserveData(address(asset));

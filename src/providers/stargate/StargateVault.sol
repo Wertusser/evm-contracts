@@ -43,6 +43,10 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     stargateRouter = router_;
     stargateLPStaking = staking_;
     poolStakingId = poolStakingId_;
+
+    stargatePool.approve(address(stargateRouter), type(uint256).max);
+    asset.approve(address(stargateRouter), type(uint256).max);
+    asset.approve(address(feesController_), type(uint256).max);
   }
 
   /// -----------------------------------------------------------------------
@@ -63,9 +67,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
 
   function _tend() internal override returns (uint256 wantAmount, uint256 feesAmount) {
     uint256 assets = asset.balanceOf(address(this));
-    (, wantAmount) = payFees(assets, "harvest");
-
-    asset.approve(address(stargateRouter), assets);
+    (feesAmount, wantAmount) = payFees(assets, "harvest");
 
     uint256 lpTokensBefore = stargatePool.balanceOf(address(this));
 
@@ -89,8 +91,6 @@ contract StargateVault is ERC4626Compoundable, WithFees {
 
     stargateLPStaking.withdraw(poolStakingId, lpTokens);
 
-    stargatePool.approve(address(stargateRouter), lpTokens);
-
     stargateRouter.instantRedeemLocal(
       uint16(stargatePool.poolId()), lpTokens, address(this)
     );
@@ -102,8 +102,6 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     /// -----------------------------------------------------------------------
     // (, assets) = payFees(assets, "deposit");
 
-    asset.approve(address(stargateRouter), assets);
-
     uint256 lpTokensBefore = stargatePool.balanceOf(address(this));
 
     stargateRouter.addLiquidity(stargatePool.poolId(), assets, address(this));
@@ -111,8 +109,6 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     uint256 lpTokensAfter = stargatePool.balanceOf(address(this));
 
     uint256 lpTokens = lpTokensAfter - lpTokensBefore;
-
-    stargatePool.approve(address(stargateLPStaking), lpTokens);
 
     stargateLPStaking.deposit(poolStakingId, lpTokens);
 
@@ -154,14 +150,14 @@ contract StargateVault is ERC4626Compoundable, WithFees {
       return 0;
     }
     uint256 totalSupply_ = stargatePool.totalSupply();
-    uint256 totalLiquidity = stargatePool.totalLiquidity();
+    uint256 totalLiquidity_ = stargatePool.totalLiquidity();
     uint256 convertRate = stargatePool.convertRate();
 
-    require(totalLiquidity > 0, "Stargate: cant convert SDtoLP when totalLiq == 0");
+    require(totalLiquidity_ > 0, "Stargate: cant convert SDtoLP when totalLiq == 0");
 
     uint256 LDToSD = amount_ / convertRate;
 
-    lpTokens = LDToSD * totalSupply_ / totalLiquidity;
+    lpTokens = LDToSD * totalSupply_ / totalLiquidity_;
   }
 
   /// -----------------------------------------------------------------------

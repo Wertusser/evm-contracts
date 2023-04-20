@@ -71,6 +71,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     // Approve to lending pool all tokens
     aToken.approve(address(lendingPool), type(uint256).max);
     asset.approve(address(lendingPool), type(uint256).max);
+    asset.approve(address(feesController_), type(uint256).max);
   }
 
   /// -----------------------------------------------------------------------
@@ -79,6 +80,79 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
   function _totalAssets() internal view virtual override returns (uint256) {
     // aTokens use rebasing to accrue interest, so the total assets is just the aToken balance
     return aToken.balanceOf(address(this));
+  }
+
+  function deposit(uint256 assets, address receiver)
+    public
+    override
+    returns (uint256 shares)
+  {
+    asset.transferFrom(msg.sender, address(this), assets);
+    (, uint256 wantAmount) = payFees(assets, "deposit");
+    asset.transfer(msg.sender, wantAmount);
+
+    shares = super.deposit(wantAmount, receiver);
+  }
+
+  function mint(uint256 shares, address receiver)
+    public
+    override
+    returns (uint256 assets)
+  {
+    uint256 assets_ = convertToAssets(shares);
+    asset.transferFrom(msg.sender, address(this), assets_);
+    (, uint256 wantAmount) = payFees(assets_, "deposit");
+    asset.transfer(msg.sender, wantAmount);
+
+    assets = super.mint(convertToShares(wantAmount), receiver);
+  }
+
+  function withdraw(uint256 assets, address receiver, address owner_)
+    public
+    override
+    returns (uint256 shares)
+  {
+    shares = super.withdraw(assets, address(this), owner_);
+
+    (, uint256 wantAmount) = payFees(assets, "withdraw");
+    asset.transfer(receiver, wantAmount);
+  }
+
+  function redeem(uint256 shares, address receiver, address owner_)
+    public
+    override
+    returns (uint256 assets)
+  {
+    assets = super.redeem(shares, address(this), owner_);
+
+    (, uint256 wantAmount) = payFees(assets, "withdraw");
+    asset.transfer(receiver, wantAmount);
+  }
+
+  function _harvest(IERC20 reward)
+    internal
+    virtual
+    override
+    returns (uint256 rewardAmount)
+  {
+    address[] memory assets = new address[](1);
+    assets[0] = address(asset);
+
+    (, uint256[] memory claimedAmounts) =
+      rewardsController.claimAllRewards(assets, address(this));
+    return claimedAmounts[0];
+  }
+
+  function _tend()
+    internal
+    virtual
+    override
+    returns (uint256 wantAmount, uint256 feesAmount)
+  {
+    uint256 assets = asset.balanceOf(address(this));
+    (feesAmount, wantAmount) = payFees(assets, "harvest");
+
+    lendingPool.supply(address(asset), wantAmount, address(this), 0);
   }
 
   function beforeWithdraw(uint256 assets, uint256 shares) internal virtual override {
@@ -207,29 +281,5 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
 
   function _getSupplyCap(uint256 configData) internal pure returns (uint256) {
     return (configData & ~SUPPLY_CAP_MASK) >> SUPPLY_CAP_START_BIT_POSITION;
-  }
-
-  function _harvest(IERC20 reward)
-    internal
-    virtual
-    override
-    returns (uint256 rewardAmount)
-  {
-    address[] memory assets = new address[](1);
-    assets[0] = address(asset);
-
-    (, uint256[] memory claimedAmounts) =
-      rewardsController.claimAllRewards(assets, address(this));
-    return claimedAmounts[0];
-  }
-
-  function _tend()
-    internal
-    virtual
-    override
-    returns (uint256 wantAmount, uint256 feesAmount)
-  {
-    wantAmount = asset.balanceOf(address(this));
-    lendingPool.supply(address(asset), wantAmount, address(this), 0);
   }
 }

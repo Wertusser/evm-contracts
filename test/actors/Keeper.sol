@@ -39,9 +39,15 @@ contract Keeper is ActorBase {
   // helper methods for actors
 
   function callHarvestSummary() public virtual {
+    console.log("\nContol summary:");
+    console.log("-------------------");
+    console.log(
+      "treasury", vaultCompoundable.asset().balanceOf(vaultCompoundable.owner())
+    );
+    console.log("total liquidity", vaultCompoundable.totalLiquidity());
+    console.log("total assets (unlocked)", vaultCompoundable.totalAssets());
     console.log("\nKeeper summary:");
     console.log("-------------------");
-    console.log("total liquidity", vaultCompoundable.totalLiquidity());
     console.log("total gain (vault)", vaultCompoundable.totalGain());
     console.log("total gain (ghost)", ghost_gainSum);
     console.log("zero harvest", ghost_zeroGain);
@@ -52,6 +58,9 @@ contract Keeper is ActorBase {
 
   function harvestTendSync(uint256 expectedOut) public useKeeper countCall("harvestTend") {
     expectedOut = bound(expectedOut, 0, 10 * 1e18);
+
+    if (vaultCompoundable.totalSupply() == 0) return;
+
     (, uint256 gain) = vaultCompoundable.harvest(reward, expectedOut);
     if (gain == 0) {
       ghost_zeroGain += 1;
@@ -59,8 +68,10 @@ contract Keeper is ActorBase {
       ghost_gainSum += gain;
       vaultCompoundable.tend();
     }
-
-    if (block.timestamp > vaultCompoundable.unlockAt()) {
+    if (vaultCompoundable.unlockAt() > 0) {
+      vm.warp(block.timestamp + 1 + (vaultCompoundable.unlockAt() - block.timestamp) / 2);
+    }
+    if (block.timestamp >= vaultCompoundable.unlockAt()) {
       vaultCompoundable.sync();
     }
   }

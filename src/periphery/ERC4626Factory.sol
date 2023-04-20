@@ -26,23 +26,6 @@ abstract contract ERC4626Factory {
     event CreateERC4626(ERC20 indexed asset, ERC4626 vault);
 
     /// -----------------------------------------------------------------------
-    /// External functions
-    /// -----------------------------------------------------------------------
-
-    /// @notice Creates an ERC4626 vault for an asset
-    /// @dev Uses CREATE2 deterministic deployment, so there can only be a single
-    /// vault for each asset. Will revert if a vault has already been deployed for the asset.
-    /// @param asset The base asset used by the vault
-    /// @return vault The vault that was created
-    function createERC4626(ERC20 asset) external virtual returns (ERC4626 vault);
-
-    /// @notice Computes the address of the ERC4626 vault corresponding to an asset. Returns
-    /// a valid result regardless of whether the vault has already been deployed.
-    /// @param asset The base asset used by the vault
-    /// @return vault The vault corresponding to the asset
-    function computeERC4626Address(ERC20 asset) external view virtual returns (ERC4626 vault);
-
-    /// -----------------------------------------------------------------------
     /// Internal functions
     /// -----------------------------------------------------------------------
 
