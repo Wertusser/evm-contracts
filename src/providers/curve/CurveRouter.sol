@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
-import "@openzeppelin/contracts/security/Pausable.sol";
 import "../../periphery/ERC4626Compoundable.sol";
 import "../../periphery/FeesController.sol";
 import "../../periphery/ERC4626Compoundable.sol";
-import "../../periphery/Router.sol";
+import "../../periphery/ERC4626Router.sol";
 
 import { ICurvePool } from "./external/ICurvePool.sol";
 import { ICurveGauge, ICurveMinter } from "./external/ICurveGauge.sol";

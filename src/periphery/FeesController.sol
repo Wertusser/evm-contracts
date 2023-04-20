@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "solmate/auth/Owned.sol";
 import "forge-std/interfaces/IERC20.sol";
-import { IERC4626 } from "./ERC4626.sol";
+import { IERC4626 } from "forge-std/interfaces/IERC4626.sol";
 
 interface IFeesController {
   function collectFee(uint256 amount, string memory feeType)
@@ -30,7 +30,7 @@ contract WithFees {
   }
 }
 
-contract FeesController is IFeesController, Ownable {
+contract FeesController is IFeesController, Owned {
   uint24 constant MAX_BPS = 10000; // 100
   uint24 constant MAX_FEE_BPS = 2500; // 25%
 
@@ -52,7 +52,7 @@ contract FeesController is IFeesController, Ownable {
     address indexed vault, string feeType, uint256 feeAmount, address asset
   );
 
-  constructor(address fallbackTreasury_) Ownable() {
+  constructor(address fallbackTreasury_) Owned(msg.sender) {
     fallbackTreasury = fallbackTreasury_;
   }
 

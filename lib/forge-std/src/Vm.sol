@@ -304,6 +304,8 @@ interface Vm is VmSafe {
     function difficulty(uint256 newDifficulty) external;
     // Sets block.chainid
     function chainId(uint256 newChainId) external;
+    // Sets tx.gasprice
+    function txGasPrice(uint256 newGasPrice) external;
     // Stores a value to an address' storage slot.
     function store(address target, bytes32 slot, bytes32 value) external;
     // Sets the nonce of an account; must be higher than the current nonce of the account
@@ -332,7 +334,7 @@ interface Vm is VmSafe {
     // logs were emitted in the expected order with the expected topics and data.
     // Second form also checks supplied address against emitting contract.
     function expectEmit() external;
-    function expectEmit(address) external;
+    function expectEmit(address emitter) external;
 
     // Prepare an expected log with (bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData).
     // Call this function, then emit an event, then call a function. Internally after the call, we check if
@@ -350,6 +352,11 @@ interface Vm is VmSafe {
     // Mocks a call to an address with a specific msg.value, returning specified data.
     // Calldata match takes precedence over msg.value in case of ambiguity.
     function mockCall(address callee, uint256 msgValue, bytes calldata data, bytes calldata returnData) external;
+    // Reverts a call to an address with specified revert data.
+    function mockCallRevert(address callee, bytes calldata data, bytes calldata revertData) external;
+    // Reverts a call to an address with a specific msg.value, with specified revert data.
+    function mockCallRevert(address callee, uint256 msgValue, bytes calldata data, bytes calldata revertData)
+        external;
     // Clears all mocked calls
     function clearMockedCalls() external;
     // Expects a call to an address with the specified calldata.
@@ -361,6 +368,13 @@ interface Vm is VmSafe {
     function expectCall(address callee, uint256 msgValue, uint64 gas, bytes calldata data) external;
     // Expect a call to an address with the specified msg.value and calldata, and a *minimum* amount of gas.
     function expectCallMinGas(address callee, uint256 msgValue, uint64 minGas, bytes calldata data) external;
+    // Only allows memory writes to offsets [0x00, 0x60) ∪ [min, max) in the current subcontext. If any other
+    // memory is written to, the test will fail. Can be called multiple times to add more ranges to the set.
+    function expectSafeMemory(uint64 min, uint64 max) external;
+    // Only allows memory writes to offsets [0x00, 0x60) ∪ [min, max) in the next created subcontext.
+    // If any other memory is written to, the test will fail. Can be called multiple times to add more ranges
+    // to the set.
+    function expectSafeMemoryCall(uint64 min, uint64 max) external;
     // Sets block.coinbase
     function coinbase(address newCoinbase) external;
     // Snapshot the current state of the evm.

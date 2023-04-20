@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
-import "forge-std/interfaces/IERC20.sol";
+import { IERC4626 } from "forge-std/interfaces/IERC4626.sol";
+import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 import "./ERC4626Controllable.sol";
-import { IERC4626 } from "./ERC4626.sol";
 import "./Swapper.sol";
 
 interface IERC4626Compoundable {
@@ -17,6 +17,8 @@ interface IERC4626Compoundable {
 }
 
 abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllable {
+  /// @notice Keeper EOA
+  address public keeper;
   /// @notice Swapper contract
   ISwapper public swapper;
   /// @notice total earned amount, used only for expectedReturns()
@@ -31,6 +33,12 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
   event Harvest(uint256 amountReward, uint256 amountWant);
   event Tend(uint256 amountWant, uint256 feesAmount);
   event SwapperUpdated(address newSwapper);
+  event KeeperUpdated(address newKeeper);
+
+  modifier onlyKeeper() {
+    require(msg.sender == keeper, "Error: keeper only method");
+    _;
+  }
 
   constructor(IERC20 asset_, ISwapper swapper_, address admin_)
     ERC4626Controllable(asset_, admin_)
@@ -40,11 +48,13 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
     created = block.timestamp;
   }
 
-  function setKeeper(address account, bool remove) public onlyRole(MANAGEMENT_ROLE) {
-    setRole(KEEPER_ROLE, account, remove);
+  function setKeeper(address account) public onlyOwner {
+    keeper = account;
+
+    emit KeeperUpdated(account);
   }
 
-  function setSwapper(ISwapper nextSwapper) public onlyRole(MANAGEMENT_ROLE) {
+  function setSwapper(ISwapper nextSwapper) public onlyOwner {
     swapper = nextSwapper;
 
     emit SwapperUpdated(address(swapper));
@@ -62,7 +72,7 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
 
   function harvest(IERC20 reward, uint256 swapAmountOut)
     public
-    onlyRole(KEEPER_ROLE)
+    onlyKeeper
     returns (uint256 rewardAmount, uint256 wantAmount)
   {
     rewardAmount = _harvest(reward);
@@ -76,17 +86,22 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
     emit Harvest(rewardAmount, wantAmount);
   }
 
-  function tend()
-    public
-    onlyRole(KEEPER_ROLE)
-    returns (uint256 wantAmount, uint256 feesAmount)
-  {
+  function tend() public onlyKeeper returns (uint256 wantAmount, uint256 feesAmount) {
     (wantAmount, feesAmount) = _tend();
 
     totalEarned += wantAmount;
     lastTend = block.timestamp;
 
     emit Tend(wantAmount, feesAmount);
+  }
+
+  function harvestTend(IERC20 reward, uint256 swapAmountOut)
+    public
+    onlyKeeper
+    returns (uint256 rewardAmount, uint256 wantAmount, uint256 feeAmount)
+  {
+    (rewardAmount,) = harvest(reward, swapAmountOut);
+    (wantAmount, feeAmount) = tend();
   }
 
   function _harvest(IERC20 reward) internal virtual returns (uint256 rewardAmount);

@@ -627,7 +627,7 @@ contract StdAssertionsTest is Test {
         address targetA = address(new TestMockCall(returnData, SHOULD_RETURN));
         address targetB = address(new TestMockCall(returnData, SHOULD_RETURN));
 
-        t._assertEqCall(targetA, targetB, callDataA, callDataB, returnData, returnData, strictRevertData, EXPECT_PASS);
+        t._assertEqCall(targetA, callDataA, targetB, callDataB, strictRevertData, EXPECT_PASS);
     }
 
     function testAssertEqCall_Return_Fail(
@@ -644,7 +644,7 @@ contract StdAssertionsTest is Test {
 
         vm.expectEmit(true, true, true, true);
         emit log_named_string("Error", "Call return data does not match");
-        t._assertEqCall(targetA, targetB, callDataA, callDataB, returnDataA, returnDataB, strictRevertData, EXPECT_FAIL);
+        t._assertEqCall(targetA, callDataA, targetB, callDataB, strictRevertData, EXPECT_FAIL);
     }
 
     function testAssertEqCall_Revert_Pass(
@@ -656,9 +656,7 @@ contract StdAssertionsTest is Test {
         address targetA = address(new TestMockCall(revertDataA, SHOULD_REVERT));
         address targetB = address(new TestMockCall(revertDataB, SHOULD_REVERT));
 
-        t._assertEqCall(
-            targetA, targetB, callDataA, callDataB, revertDataA, revertDataB, NON_STRICT_REVERT_DATA, EXPECT_PASS
-        );
+        t._assertEqCall(targetA, callDataA, targetB, callDataB, NON_STRICT_REVERT_DATA, EXPECT_PASS);
     }
 
     function testAssertEqCall_Revert_Fail(
@@ -674,9 +672,7 @@ contract StdAssertionsTest is Test {
 
         vm.expectEmit(true, true, true, true);
         emit log_named_string("Error", "Call revert data does not match");
-        t._assertEqCall(
-            targetA, targetB, callDataA, callDataB, revertDataA, revertDataB, STRICT_REVERT_DATA, EXPECT_FAIL
-        );
+        t._assertEqCall(targetA, callDataA, targetB, callDataB, STRICT_REVERT_DATA, EXPECT_FAIL);
     }
 
     function testAssertEqCall_Fail(
@@ -693,13 +689,53 @@ contract StdAssertionsTest is Test {
         emit log_named_bytes("  Left call return data", returnDataA);
         vm.expectEmit(true, true, true, true);
         emit log_named_bytes(" Right call revert data", returnDataB);
-        t._assertEqCall(targetA, targetB, callDataA, callDataB, returnDataA, returnDataB, strictRevertData, EXPECT_FAIL);
+        t._assertEqCall(targetA, callDataA, targetB, callDataB, strictRevertData, EXPECT_FAIL);
 
         vm.expectEmit(true, true, true, true);
         emit log_named_bytes("  Left call revert data", returnDataB);
         vm.expectEmit(true, true, true, true);
         emit log_named_bytes(" Right call return data", returnDataA);
-        t._assertEqCall(targetB, targetA, callDataB, callDataA, returnDataB, returnDataA, strictRevertData, EXPECT_FAIL);
+        t._assertEqCall(targetB, callDataB, targetA, callDataA, strictRevertData, EXPECT_FAIL);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                ASSERT_NOT_EQ(BYTES)
+    //////////////////////////////////////////////////////////////////////////*/
+
+    function testAssertNotEq_Bytes_Pass(bytes32 a, bytes32 b) external {
+        vm.assume(a != b);
+        t._assertNotEq(a, b, EXPECT_PASS);
+    }
+
+    function testAssertNotEq_Bytes_Fail(bytes32 a) external {
+        vm.expectEmit(false, false, false, true);
+        emit log("Error: a != b not satisfied [bytes32]");
+        t._assertNotEq(a, a, EXPECT_FAIL);
+    }
+
+    function testAssertNotEq_BytesErr_Pass(bytes32 a, bytes32 b) external {
+        vm.assume(a != b);
+        t._assertNotEq(a, b, CUSTOM_ERROR, EXPECT_PASS);
+    }
+
+    function testAsserNottEq_BytesErr_Fail(bytes32 a) external {
+        vm.expectEmit(false, false, false, true);
+        emit log_named_string("Error", CUSTOM_ERROR);
+        t._assertNotEq(a, a, CUSTOM_ERROR, EXPECT_FAIL);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                ASSERT_NOT_EQ(UINT)
+    //////////////////////////////////////////////////////////////////////////*/
+
+    function testAssertNotEqUint() public {
+        assertNotEq(uint8(1), uint128(2));
+        assertNotEq(uint64(3), uint64(4));
+    }
+
+    function testFailAssertNotEqUint() public {
+        assertNotEq(uint64(1), uint96(1));
+        assertNotEq(uint160(2), uint160(2));
     }
 }
 
@@ -785,6 +821,17 @@ contract TestTest is Test {
         expectFailure(expectFail)
     {
         assertEq(a, b, err);
+    }
+
+    function _assertNotEq(bytes32 a, bytes32 b, bool expectFail) external expectFailure(expectFail) {
+        assertNotEq32(a, b);
+    }
+
+    function _assertNotEq(bytes32 a, bytes32 b, string memory err, bool expectFail)
+        external
+        expectFailure(expectFail)
+    {
+        assertNotEq32(a, b, err);
     }
 
     function _assertApproxEqAbs(uint256 a, uint256 b, uint256 maxDelta, bool expectFail)
@@ -917,11 +964,9 @@ contract TestTest is Test {
 
     function _assertEqCall(
         address targetA,
-        address targetB,
         bytes memory callDataA,
+        address targetB,
         bytes memory callDataB,
-        bytes memory returnDataA,
-        bytes memory returnDataB,
         bool strictRevertData,
         bool expectFail
     ) external expectFailure(expectFail) {

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
-import {ERC20} from "./ERC20.sol";
-import {ERC4626} from "./ERC4626.sol";
+import {ERC20} from "solmate/tokens/ERC20.sol";
+import { ERC4626 } from "solmate/mixins/ERC4626.sol";
 import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 
 /// @title ERC4626Factory
@@ -53,7 +53,7 @@ abstract contract ERC4626Factory {
     /// @param bytecodeHash The keccak256 hash of the creation code of the contract being deployed concatenated
     /// with the ABI-encoded constructor arguments.
     /// @return The address of the deployed contract
-    function _computeCreate2Address(bytes32 bytecodeHash) internal view virtual returns (address) {
+    function computeCreate2Address(bytes32 bytecodeHash) internal view virtual returns (address) {
         return keccak256(abi.encodePacked(bytes1(0xFF), address(this), bytes32(0), bytecodeHash))
             // Prefix:
             // Creator:

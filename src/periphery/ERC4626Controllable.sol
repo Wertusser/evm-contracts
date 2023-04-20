@@ -1,22 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "forge-std/interfaces/IERC20.sol";
-import { ERC4626, IERC4626 } from "./ERC4626.sol";
+import "solmate/auth/Owned.sol";
+import { IERC20 } from "forge-std/interfaces/IERC20.sol";
+import { IERC4626 } from "forge-std/interfaces/IERC4626.sol";
+import { ERC4626 } from "solmate/mixins/ERC4626.sol";
 import "./Swapper.sol";
 
-abstract contract ERC4626Controllable is ERC4626, AccessControl {
-  bytes32 public constant MANAGEMENT_ROLE = keccak256("MANAGEMENT_ROLE");
-  bytes32 public constant SWEEPER_ROLE = keccak256("SWEEPER_ROLE");
-  bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
-
+abstract contract ERC4626Controllable is ERC4626, Owned {
   uint256 public depositLimit;
   bool public canDeposit;
   address public admin;
-
-  string private _name;
-  string private _symbol;
 
   /// @notice Used in reentrancy check.
   uint256 private locked = 1;
@@ -35,12 +29,13 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
   mapping(address => uint256) public depositOf;
   mapping(address => uint256) public withdrawOf;
 
-  event DepositLimitUpdated(uint256 depositLimit);
-  event Recovered(address token, uint256 amount);
   event DepositUpdated(bool canDeposit);
+  event DepositLimitUpdated(uint256 depositLimit);
   event MetadataUpdated(string name, string symbol);
-  event Sync(uint256 unlockAt, uint256 amountWant);
   event LockPeriodUpdated(uint256 newLockPeriod);
+
+  event Recovered(address token, uint256 amount);
+  event Sync(uint256 unlockAt, uint256 amountWant);
 
   modifier nonReentrant() {
     require(locked == 1, "Non-reentrancy guard");
@@ -49,11 +44,7 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
     locked = 1;
   }
 
-  constructor(IERC20 asset_, address admin_) ERC4626(asset_) AccessControl() {
-    _setupRole(DEFAULT_ADMIN_ROLE, admin_);
-    _setupRole(MANAGEMENT_ROLE, admin_);
-    _setupRole(EMERGENCY_ROLE, admin_);
-
+  constructor(IERC20 asset_, address admin_) ERC4626(asset_) Owned(admin_) {
     depositLimit = type(uint256).max;
     // depositLimit = 1e18;
     canDeposit = true;
@@ -63,55 +54,30 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
 
   /////// Vault settings
 
-  function toggle() public onlyRole(EMERGENCY_ROLE) {
+  function toggle() public onlyOwner {
     canDeposit = !canDeposit;
 
     emit DepositUpdated(canDeposit);
   }
 
-  function setDepositLimit(uint256 depositLimit_) public onlyRole(MANAGEMENT_ROLE) {
+  function setDepositLimit(uint256 depositLimit_) public onlyOwner {
     require(depositLimit_ >= totalAssets());
     depositLimit = depositLimit_;
 
     emit DepositLimitUpdated(depositLimit);
   }
 
-  function setMetadata(string memory name_, string memory symbol_)
-    public
-    onlyRole(MANAGEMENT_ROLE)
-  {
-    _name = name_;
-    _symbol = symbol_;
+  function setMetadata(string memory name_, string memory symbol_) public onlyOwner {
+    name = name_;
+    symbol = symbol_;
 
     emit MetadataUpdated(name_, symbol_);
   }
 
-  function setLockPeriod(uint256 _lockPeriod) public onlyRole(MANAGEMENT_ROLE) {
+  function setLockPeriod(uint256 _lockPeriod) public onlyOwner {
     lockPeriod = _lockPeriod;
 
     emit LockPeriodUpdated(lockPeriod);
-  }
-
-  /////// Roles functions
-
-  function setRole(bytes32 role, address account, bool remove) internal {
-    if (remove) {
-      revokeRole(role, account);
-    } else {
-      grantRole(role, account);
-    }
-  }
-
-  function setManager(address manager, bool remove) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    setRole(MANAGEMENT_ROLE, manager, remove);
-  }
-
-  function setEmergency(address manager, bool remove) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    setRole(EMERGENCY_ROLE, manager, remove);
-  }
-
-  function setSweeper(address sweeper, bool remove) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    setRole(SWEEPER_ROLE, sweeper, remove);
   }
 
   /////////////////
@@ -135,21 +101,14 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
 
   ////////////////
 
-  function sweep(address tokenAddress, uint256 tokenAmount)
-    external
-    onlyRole(SWEEPER_ROLE)
-  {
-    require(tokenAddress != address(_asset), "Cannot withdraw the underlying token");
+  function sweep(address tokenAddress, uint256 tokenAmount) external onlyOwner {
+    require(tokenAddress != address(asset()), "Cannot withdraw the underlying token");
     IERC20(tokenAddress).transfer(msg.sender, tokenAmount);
 
     emit Recovered(tokenAddress, tokenAmount);
   }
 
-  function sweepETH(address payable receiver, uint256 amount)
-    external
-    payable
-    onlyRole(SWEEPER_ROLE)
-  {
+  function refundETH(address payable receiver, uint256 amount) external payable onlyOwner {
     (bool s,) = receiver.call{ value: amount }("");
     require(s, "ETH transfer failed");
 
@@ -157,9 +116,14 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
   }
 
   function sync() public virtual {
-    require(block.timestamp >= unlockAt, "some earings is still locked");
+    require(block.timestamp >= unlockAt, "Error: rewards is still locked");
 
-    uint256 nextUnlockedAssets = _totalAssets() - storedTotalAssets - lastUnlockedAssets;
+    uint256 lastTotalAssets = storedTotalAssets + lastUnlockedAssets;
+    uint256 totalAssets_ = _totalAssets();
+    
+    require(totalAssets_ >= lastTotalAssets, "Error: vault have lose");
+
+    uint256 nextUnlockedAssets = totalAssets_ - lastTotalAssets;
     uint256 end = ((block.timestamp + lockPeriod) / lockPeriod) * lockPeriod;
 
     storedTotalAssets += lastUnlockedAssets;
@@ -185,7 +149,7 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
     require(canDeposit, "Error: deposits is currently paused");
     require(totalAssets() + assets <= depositLimit, "Error: deposit overflow");
 
-    _asset.transferFrom(caller, address(this), assets);
+    IERC20(asset()).transferFrom(caller, address(this), assets);
     _mint(receiver, shares);
 
     depositOf[receiver] += assets;
@@ -209,7 +173,7 @@ abstract contract ERC4626Controllable is ERC4626, AccessControl {
     }
 
     _burn(owner, shares);
-    _asset.transfer(receiver, assets);
+    IERC20(asset()).transfer(receiver, assets);
 
     withdrawOf[receiver] += assets;
     storedTotalAssets -= assets;
