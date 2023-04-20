@@ -81,21 +81,25 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     return aToken.balanceOf(address(this));
   }
 
-  function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal virtual override {
+  function beforeWithdraw(uint256 assets, uint256 shares) internal virtual override {
     /// -----------------------------------------------------------------------
     /// Withdraw assets from Aave
     /// -----------------------------------------------------------------------
+    super.beforeWithdraw(assets, shares);
+
     lendingPool.withdraw(address(asset), assets, address(this));
   }
 
-  function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal virtual override {
+  function afterDeposit(uint256 assets, uint256 shares) internal virtual override {
     /// -----------------------------------------------------------------------
     /// Deposit assets into Aave
     /// -----------------------------------------------------------------------
     lendingPool.supply(address(asset), assets, address(this), 0);
+
+    super.afterDeposit(assets, shares);
   }
 
-  function maxDeposit(address ) public view virtual override returns (uint256) {
+  function maxDeposit(address) public view virtual override returns (uint256) {
     if (totalAssets() >= depositLimit) {
       return 0;
     }
@@ -120,7 +124,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     return limitCap < supplyCap ? limitCap : supplyCap;
   }
 
-  function maxMint(address ) public view virtual override returns (uint256) {
+  function maxMint(address) public view virtual override returns (uint256) {
     if (totalAssets() >= depositLimit) {
       return 0;
     }
@@ -223,10 +227,9 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     internal
     virtual
     override
-    returns (uint256 wantAmount, uint256 sharesAdded)
+    returns (uint256 wantAmount, uint256 feesAmount)
   {
     wantAmount = asset.balanceOf(address(this));
-    sharesAdded = convertToShares(wantAmount);
     lendingPool.supply(address(asset), wantAmount, address(this), 0);
   }
 }

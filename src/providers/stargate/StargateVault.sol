@@ -61,11 +61,9 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     rewardAmount = reward.balanceOf(address(this));
   }
 
-  function _tend() internal override returns (uint256 wantAmount, uint256 sharesAdded) {
+  function _tend() internal override returns (uint256 wantAmount, uint256 feesAmount) {
     uint256 assets = asset.balanceOf(address(this));
     (, wantAmount) = payFees(assets, "harvest");
-
-    sharesAdded = this.convertToShares(assets);
 
     asset.approve(address(stargateRouter), assets);
 
@@ -80,11 +78,12 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     stargateLPStaking.deposit(poolStakingId, lpTokens);
   }
 
-  function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal override {
+  function beforeWithdraw(uint256 assets, uint256 shares) internal override {
     /// -----------------------------------------------------------------------
     /// Withdraw assets from Stargate
     /// -----------------------------------------------------------------------
     // (, assets) = payFees(assets, "withdraw");
+    super.beforeWithdraw(assets, shares);
 
     uint256 lpTokens = getStargateLP(assets);
 
@@ -97,7 +96,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     );
   }
 
-  function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal virtual override {
+  function afterDeposit(uint256 assets, uint256 shares) internal virtual override {
     /// -----------------------------------------------------------------------
     /// Deposit assets into Stargate
     /// -----------------------------------------------------------------------
@@ -116,6 +115,8 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     stargatePool.approve(address(stargateLPStaking), lpTokens);
 
     stargateLPStaking.deposit(poolStakingId, lpTokens);
+
+    super.afterDeposit(assets, shares);
   }
 
   function maxDeposit(address) public view override returns (uint256) {
@@ -167,19 +168,11 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   /// ERC20 metadata generation
   /// -----------------------------------------------------------------------
 
-  function _vaultName(IERC20 asset_)
-    internal
-    view
-    returns (string memory vaultName)
-  {
+  function _vaultName(IERC20 asset_) internal view returns (string memory vaultName) {
     vaultName = string.concat("Yasp Stargate Vault ", asset_.symbol());
   }
 
-  function _vaultSymbol(IERC20 asset_)
-    internal
-    view
-    returns (string memory vaultSymbol)
-  {
+  function _vaultSymbol(IERC20 asset_) internal view returns (string memory vaultSymbol) {
     vaultSymbol = string.concat("ystg", asset_.symbol());
   }
 }

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
-import { IERC4626 } from "forge-std/interfaces/IERC4626.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 import "./ERC4626Controllable.sol";
 import "./Swapper.sol";
@@ -22,7 +21,7 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
   /// @notice Swapper contract
   ISwapper public swapper;
   /// @notice total earned amount, used only for expectedReturns()
-  uint256 public totalEarned;
+  uint256 public totalGain;
   /// @notice timestamp of last tend() call
   uint256 public lastTend;
   /// @notice creation timestamp.
@@ -68,7 +67,7 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
     require(timestamp >= unlockAt, "Unexpected timestamp");
 
     if (lastTend > created) {
-      return totalEarned * (timestamp - lastTend) / (lastTend - created);
+      return totalGain * (timestamp - lastTend) / (lastTend - created);
     } else {
       return 0;
     }
@@ -94,7 +93,7 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
   function tend() public onlyKeeper returns (uint256 wantAmount, uint256 feesAmount) {
     (wantAmount, feesAmount) = _tend();
 
-    totalEarned += wantAmount;
+    totalGain += wantAmount;
     lastTend = block.timestamp;
 
     emit Tend(wantAmount, feesAmount);

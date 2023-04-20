@@ -41,7 +41,9 @@ contract Keeper is ActorBase {
   function callHarvestSummary() public virtual {
     console.log("\nKeeper summary:");
     console.log("-------------------");
-    console.log("total gain", ghost_gainSum);
+    console.log("total liquidity", vaultCompoundable.totalLiquidity());
+    console.log("total gain (vault)", vaultCompoundable.totalGain());
+    console.log("total gain (ghost)", ghost_gainSum);
     console.log("zero harvest", ghost_zeroGain);
     console.log("harvest/tend", calls["harvestTend"]);
   }

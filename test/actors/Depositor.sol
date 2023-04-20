@@ -60,6 +60,7 @@ contract Depositor is ActorBase {
 
     if (amount == 0) {
       ghost_zeroDeposit += 1;
+      return;
     }
     vault.deposit(amount, currentActor);
     ghost_depositSum += amount;
@@ -71,6 +72,7 @@ contract Depositor is ActorBase {
 
     if (amount == 0) {
       ghost_zeroDeposit += 1;
+      return;
     }
     uint256 shares = vault.convertToShares(amount);
 
@@ -102,6 +104,7 @@ contract Depositor is ActorBase {
     amount = bound(amount, 0, vault.maxRedeem(currentActor));
     if (amount == 0) {
       ghost_zeroWithdraw += 1;
+      return;
     }
     vault.redeem(amount, currentActor, currentActor);
     ghost_withdrawSum += amount;

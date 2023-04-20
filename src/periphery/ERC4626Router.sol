@@ -4,8 +4,8 @@ pragma solidity 0.8.13;
 import "../utils/Multicall.sol";
 import "../utils/PeripheryPayments.sol";
 import "../utils/SelfPermit.sol";
-import { IERC4626, IERC4626Compoundable } from "./ERC4626Compoundable.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
+import { IERC4626 } from "forge-std/interfaces/IERC4626.sol";
 
 interface IERC2612 is IERC20 {
   function permit(

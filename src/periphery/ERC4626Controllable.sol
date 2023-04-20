@@ -3,10 +3,9 @@ pragma solidity ^0.8.13;
 
 import "solmate/auth/Owned.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
-import { IERC4626 } from "forge-std/interfaces/IERC4626.sol";
 import { ERC4626 } from "solmate/mixins/ERC4626.sol";
 import { ERC20 } from "solmate/tokens/ERC20.sol";
-import "./Swapper.sol";
+import "forge-std/console2.sol";
 
 abstract contract ERC4626Controllable is ERC4626, Owned {
   uint256 public depositLimit;
@@ -57,13 +56,6 @@ abstract contract ERC4626Controllable is ERC4626, Owned {
   }
 
   /////// Vault settings
-
-  function toggle() public onlyOwner {
-    canDeposit = !canDeposit;
-
-    emit DepositUpdated(canDeposit);
-  }
-
   function setDepositLimit(uint256 depositLimit_) public onlyOwner {
     require(depositLimit_ >= totalAssets());
     depositLimit = depositLimit_;
@@ -84,26 +76,11 @@ abstract contract ERC4626Controllable is ERC4626, Owned {
     emit LockPeriodUpdated(lockPeriod);
   }
 
-  /////////////////
+  function toggle() public onlyOwner {
+    canDeposit = !canDeposit;
 
-  function totalAssets() public view override returns (uint256) {
-    if (block.timestamp >= unlockAt) {
-      return storedTotalAssets + lastUnlockedAssets;
-    }
-
-    uint256 unlockedAssets =
-      (lastUnlockedAssets * (block.timestamp - lastSync)) / (unlockAt - lastSync);
-    return storedTotalAssets + unlockedAssets;
+    emit DepositUpdated(canDeposit);
   }
-
-  function pnl(address user) public view returns (int256) {
-    uint256 totalDeposited = depositOf[user];
-    uint256 totalWithdraw = withdrawOf[user] + this.maxWithdraw(user);
-
-    return int256(totalWithdraw) - int256(totalDeposited);
-  }
-
-  ////////////////
 
   function sweep(address tokenAddress, uint256 tokenAmount) external onlyOwner {
     require(tokenAddress != address(asset), "Cannot withdraw the underlying token");
@@ -117,6 +94,33 @@ abstract contract ERC4626Controllable is ERC4626, Owned {
     require(s, "ETH transfer failed");
 
     emit Recovered(address(0), amount);
+  }
+
+  /////////////////
+
+  function totalAssets() public view override returns (uint256) {
+    if (block.timestamp >= unlockAt) {
+      return storedTotalAssets + lastUnlockedAssets;
+    }
+
+    if (block.timestamp < unlockAt) {
+      return storedTotalAssets;
+    }
+
+    uint256 unlockedAssets =
+      (lastUnlockedAssets * (block.timestamp - lastSync)) / (unlockAt - lastSync);
+    return storedTotalAssets + unlockedAssets;
+  }
+
+  function totalLiquidity() public view returns (uint256) {
+    return _totalAssets();
+  }
+
+  function pnl(address user) public view returns (int256) {
+    uint256 totalDeposited = depositOf[user];
+    uint256 totalWithdraw = withdrawOf[user] + this.maxWithdraw(user);
+
+    return int256(totalWithdraw) - int256(totalDeposited);
   }
 
   function sync() public virtual {
@@ -141,7 +145,18 @@ abstract contract ERC4626Controllable is ERC4626, Owned {
   ////////////////
 
   function _totalAssets() internal view virtual returns (uint256 assets);
-  /**
-   * @dev Deposit/mint common workflow.
-   */
+
+  function beforeWithdraw(uint256 amount, uint256 shares) internal virtual override {
+    super.beforeWithdraw(amount, shares);
+
+    storedTotalAssets -= amount;
+    withdrawOf[msg.sender] += amount;
+  }
+
+  function afterDeposit(uint256 amount, uint256 shares) internal virtual override {
+    storedTotalAssets += amount;
+    depositOf[msg.sender] += amount;
+
+    super.afterDeposit(amount, shares);
+  }
 }
