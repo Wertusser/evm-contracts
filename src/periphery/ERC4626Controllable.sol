@@ -5,7 +5,6 @@ import "solmate/auth/Owned.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 import { ERC4626 } from "solmate/mixins/ERC4626.sol";
 import { ERC20 } from "solmate/tokens/ERC20.sol";
-import "forge-std/console2.sol";
 
 abstract contract ERC4626Controllable is ERC4626, Owned {
   /// @notice Maximum deposit limit
@@ -50,8 +49,7 @@ abstract contract ERC4626Controllable is ERC4626, Owned {
     ERC4626(ERC20(address(asset_)), _name, _symbol)
     Owned(admin_)
   {
-    depositLimit = type(uint256).max;
-    // depositLimit = 1e27;
+    depositLimit = 1e27;
     canDeposit = true;
 
     unlockAt = (block.timestamp / lockPeriod) * lockPeriod;

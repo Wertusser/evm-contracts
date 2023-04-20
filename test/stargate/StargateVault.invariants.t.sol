@@ -48,7 +48,9 @@ contract StargateVaultInvariants is ERC4626CompoundableInvariants {
           feesController,
           owner
         );
-
+    feesController.setFeeBps(address(vault), "harvest", 2500);
+    feesController.setFeeBps(address(vault), "deposit", 2500);
+    feesController.setFeeBps(address(vault), "withdraw", 2500);
     setVault(IERC4626(address(vault)), IERC20(address(reward)));
 
     vm.startPrank(owner);

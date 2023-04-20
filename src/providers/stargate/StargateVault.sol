@@ -59,6 +59,53 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     return stargatePool.amountLPtoLD(info.amount);
   }
 
+  function deposit(uint256 assets, address receiver)
+    public
+    override
+    returns (uint256 shares)
+  {
+    asset.transferFrom(msg.sender, address(this), assets);
+    (, uint256 wantAmount) = payFees(assets, "deposit");
+    asset.transfer(msg.sender, wantAmount);
+
+    shares = super.deposit(wantAmount, receiver);
+  }
+
+  function mint(uint256 shares, address receiver)
+    public
+    override
+    returns (uint256 assets)
+  {
+    uint256 assets_ = convertToAssets(shares);
+    asset.transferFrom(msg.sender, address(this), assets_);
+    (, uint256 wantAmount) = payFees(assets_, "deposit");
+    asset.transfer(msg.sender, wantAmount);
+
+    assets = super.mint(convertToShares(wantAmount), receiver);
+  }
+
+  function withdraw(uint256 assets, address receiver, address owner_)
+    public
+    override
+    returns (uint256 shares)
+  {
+    shares = super.withdraw(assets, address(this), owner_);
+
+    (, uint256 wantAmount) = payFees(assets, "withdraw");
+    asset.transfer(receiver, wantAmount);
+  }
+
+  function redeem(uint256 shares, address receiver, address owner_)
+    public
+    override
+    returns (uint256 assets)
+  {
+    assets = super.redeem(shares, address(this), owner_);
+
+    (, uint256 wantAmount) = payFees(assets, "withdraw");
+    asset.transfer(receiver, wantAmount);
+  }
+
   function _harvest(IERC20 reward) internal override returns (uint256 rewardAmount) {
     stargateLPStaking.withdraw(poolStakingId, 0);
 
@@ -116,11 +163,17 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   }
 
   function maxDeposit(address) public view override returns (uint256) {
-    return canDeposit ? depositLimit - totalAssets() : 0;
+    if (totalAssets() >= depositLimit || !canDeposit) {
+      return 0;
+    }
+    return depositLimit - totalAssets();
   }
 
   function maxMint(address) public view override returns (uint256) {
-    return canDeposit ? convertToShares(depositLimit - totalAssets()) : 0;
+    if (totalAssets() >= depositLimit || !canDeposit) {
+      return 0;
+    }
+    return convertToShares(depositLimit - totalAssets());
   }
 
   function maxWithdraw(address owner_) public view override returns (uint256) {

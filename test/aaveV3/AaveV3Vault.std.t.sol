@@ -52,10 +52,6 @@ contract AaveV3VaultStdTest is ERC4626Test {
       owner
     );
 
-    feesController.setFee(address(vault), "harvest", 2500);
-    feesController.setFee(address(vault), "deposit", 2500);
-    feesController.setFee(address(vault), "withdraw", 2500);
-
     vm.startPrank(owner);
     vault.setKeeper(address(0xdeadbeef));
     vm.stopPrank();
@@ -66,23 +62,5 @@ contract AaveV3VaultStdTest is ERC4626Test {
     _delta_ = 0;
     _vaultMayBeEmpty = false;
     _unlimitedAmount = true;
-  }
-
-  // custom setup for yield
-  function setUpYield(Init memory init) public override {
-    // setup initial yield
-    if (init.yield >= 0) {
-      uint256 gain = uint256(init.yield);
-      try underlying.mint(address(lendingPool), gain) { }
-      catch {
-        vm.assume(false);
-      }
-      try aToken.mint(address(vault), gain) { }
-      catch {
-        vm.assume(false);
-      }
-    } else {
-      vm.assume(false); // TODO: test negative yield scenario
-    }
   }
 }

@@ -45,9 +45,9 @@ contract AaveV3VaultInvariants is ERC4626CompoundableInvariants {
       owner
     );
 
-    feesController.setFee(address(vault), "harvest", 2500);
-    feesController.setFee(address(vault), "deposit", 2500);
-    feesController.setFee(address(vault), "withdraw", 2500);
+    feesController.setFeeBps(address(vault), "harvest", 2500);
+    feesController.setFeeBps(address(vault), "deposit", 2500);
+    feesController.setFeeBps(address(vault), "withdraw", 2500);
     setVault(IERC4626(address(vault)), IERC20(address(aave)));
 
     vm.startPrank(owner);

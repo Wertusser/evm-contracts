@@ -6,10 +6,24 @@ import "forge-std/interfaces/IERC20.sol";
 import { IERC4626 } from "forge-std/interfaces/IERC4626.sol";
 
 interface IFeesController {
-  function getFee(address vault, string memory feeType)
+  event TreasuryUpdated(address nextTreasury);
+  event FallbackTreasuryUpdated(address nextTreasury);
+  event FeesUpdated(address indexed vault, string feeType, uint24 value);
+  event FeesCollected(
+    address indexed vault, string feeType, uint256 feeAmount, address asset
+  );
+
+  function getFeeBps(address vault, string memory feeType)
     external
     view
     returns (uint24 feeBps);
+
+  function setFeeBps(address vault, string memory feeType, uint24 value) external;
+
+  function previewFee(uint256 amount, string memory feeType)
+    external
+    view
+    returns (uint256 feesAmount, uint256 restAmount);
 
   function collectFee(uint256 amount, string memory feeType)
     external
@@ -50,13 +64,6 @@ contract FeesController is IFeesController, Owned {
 
   address public fallbackTreasury;
 
-  event TreasuryUpdated(address nextTreasury);
-  event FallbackTreasuryUpdated(address nextTreasury);
-  event FeesUpdated(address indexed vault, string feeType, uint24 value);
-  event FeesCollected(
-    address indexed vault, string feeType, uint256 feeAmount, address asset
-  );
-
   constructor(address fallbackTreasury_) Owned(msg.sender) {
     fallbackTreasury = fallbackTreasury_;
   }
@@ -66,7 +73,7 @@ contract FeesController is IFeesController, Owned {
     return result != address(0) ? result : fallbackTreasury;
   }
 
-  function getFee(address vault, string memory feeType)
+  function getFeeBps(address vault, string memory feeType)
     public
     view
     returns (uint24 feeBps)
@@ -86,40 +93,53 @@ contract FeesController is IFeesController, Owned {
     emit TreasuryUpdated(nextTreasury);
   }
 
-  function setFee(address vault, string memory feeType, uint24 value) external onlyOwner {
+  function setFeeBps(address vault, string memory feeType, uint24 value)
+    external
+    onlyOwner
+  {
     require(value <= MAX_FEE_BPS, "Fee overflow, max 25%");
     feesConfig[vault][feeType] = value;
 
     emit FeesUpdated(vault, feeType, value);
   }
 
+  function previewFee(uint256 amount, string memory feeType)
+    public
+    view
+    returns (uint256 feesAmount, uint256 restAmount)
+  {
+    uint24 bps = feesConfig[msg.sender][feeType];
+    if (amount > 0 && bps > 0) {
+      feesAmount = amount * bps / MAX_BPS;
+      return (feesAmount, amount - feesAmount);
+    } else {
+      return (0, amount);
+    }
+  }
+
   function collectFee(uint256 amount, string memory feeType)
     external
     returns (uint256 feesAmount, uint256 restAmount)
   {
-    if (amount > 0 && feesConfig[msg.sender][feeType] > 0) {
-      return _collectFee(msg.sender, amount, feeType);
-    } else {
-      return (0, amount);
-    }
+    return _collectFee(msg.sender, amount, feeType);
   }
 
   function _collectFee(address vault, uint256 amount, string memory feeType)
     internal
     returns (uint256 feesAmount, uint256 restAmount)
   {
-    address asset = IERC4626(vault).asset();
+    (feesAmount, restAmount) = previewFee(amount, feeType);
+    if (feesAmount == 0) {
+      return (feesAmount, restAmount);
+    }
 
-    uint24 bps = feesConfig[vault][feeType];
-    feesAmount = amount * bps / MAX_BPS;
+    address asset = IERC4626(vault).asset();
 
     address treasury_ = treasury(vault);
     IERC20(asset).transferFrom(vault, treasury_, feesAmount);
 
     feesCollected[vault] += feesAmount;
     feesCollectedByTreasuries[vault][treasury_] += feesAmount;
-
-    restAmount = amount - feesAmount;
 
     emit FeesCollected(vault, feeType, feesAmount, asset);
   }
