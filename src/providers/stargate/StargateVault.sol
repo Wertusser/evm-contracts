@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.13;
 
 import "./external/IStargateLPStaking.sol";
 import "./external/IStargateRouter.sol";
@@ -21,6 +21,8 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   IStargateLPStaking public stargateLPStaking;
   /// @notice The stargate pool staking id
   uint256 public poolStakingId;
+  /// @notice underlying pool asset
+  address public poolToken;
 
   /// -----------------------------------------------------------------------
   /// Initialize
@@ -36,17 +38,62 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     IFeesController feesController_,
     address owner_
   )
-    ERC4626Compoundable(asset_, _vaultName(asset_), _vaultSymbol(asset_), swapper_, owner_)
+    ERC4626Compoundable(
+      IERC20(address(pool_)),
+      _vaultName(asset_),
+      _vaultSymbol(asset_),
+      swapper_,
+      owner_
+    )
     WithFees(feesController_)
   {
     stargatePool = pool_;
     stargateRouter = router_;
     stargateLPStaking = staking_;
     poolStakingId = poolStakingId_;
+    poolToken = address(asset_);
 
-    stargatePool.approve(address(stargateRouter), type(uint256).max);
-    asset.approve(address(stargateRouter), type(uint256).max);
-    asset.approve(address(feesController_), type(uint256).max);
+    asset_.approve(address(stargateRouter), type(uint256).max);
+    stargatePool.approve(address(stargateLPStaking), type(uint256).max);
+    stargatePool.approve(address(feesController_), type(uint256).max);
+  }
+
+  /// -----------------------------------------------------------------------
+  /// Multicall Helpers
+  /// -----------------------------------------------------------------------
+  function zapDeposit(uint256 assets, address receiver) public returns (uint256 shares) {
+    IERC20(stargatePool.token()).transferFrom(msg.sender, address(this), assets);
+
+    uint256 lpTokensBefore = stargatePool.balanceOf(msg.sender);
+
+    stargateRouter.addLiquidity(stargatePool.poolId(), assets, msg.sender);
+
+    uint256 lpTokensAfter = stargatePool.balanceOf(msg.sender);
+
+    uint256 lpTokens = lpTokensAfter - lpTokensBefore;
+
+    shares = super.deposit(lpTokens, receiver);
+  }
+
+  function zapWithdraw(uint256 assets, address receiver, address owner_)
+    public
+    returns (uint256 shares)
+  {
+    assets = getStargateLP(assets); // convert to LP tokens
+
+    uint256 lpTokensBefore = stargatePool.balanceOf(address(this));
+
+    shares = super.withdraw(assets, address(this), owner_);
+
+    uint256 lpTokensAfter = stargatePool.balanceOf(address(this));
+
+    uint256 lpTokens = lpTokensAfter - lpTokensBefore;
+
+    stargateRouter.instantRedeemLocal(uint16(stargatePool.poolId()), lpTokens, receiver);
+  }
+
+  function maxZapWithdraw(address owner_) public view returns (uint256 assets) {
+    return stargatePool.amountLPtoLD(maxWithdraw(owner_));
   }
 
   /// -----------------------------------------------------------------------
@@ -56,54 +103,26 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   function _totalAssets() internal view virtual override returns (uint256) {
     IStargateLPStaking.UserInfo memory info =
       stargateLPStaking.userInfo(poolStakingId, address(this));
-    return stargatePool.amountLPtoLD(info.amount);
+    return info.amount;
   }
 
-  function deposit(uint256 assets, address receiver)
+  function harvest(IERC20 reward, uint256 swapAmountOut)
     public
     override
-    returns (uint256 shares)
+    onlyKeeper
+    returns (uint256 rewardAmount, uint256 wantAmount)
   {
-    asset.transferFrom(msg.sender, address(this), assets);
-    (, uint256 wantAmount) = payFees(assets, "deposit");
-    asset.transfer(msg.sender, wantAmount);
+    _harvest(reward);
+    rewardAmount = reward.balanceOf(address(this));
 
-    shares = super.deposit(wantAmount, receiver);
-  }
+    if (rewardAmount > 0) {
+      reward.approve(address(swapper), rewardAmount);
+      wantAmount = swapper.swap(reward, IERC20(poolToken), rewardAmount, swapAmountOut);
+    } else {
+      wantAmount = 0;
+    }
 
-  function mint(uint256 shares, address receiver)
-    public
-    override
-    returns (uint256 assets)
-  {
-    uint256 assets_ = convertToAssets(shares);
-    asset.transferFrom(msg.sender, address(this), assets_);
-    (, uint256 wantAmount) = payFees(assets_, "deposit");
-    asset.transfer(msg.sender, wantAmount);
-
-    assets = super.mint(convertToShares(wantAmount), receiver);
-  }
-
-  function withdraw(uint256 assets, address receiver, address owner_)
-    public
-    override
-    returns (uint256 shares)
-  {
-    shares = super.withdraw(assets, address(this), owner_);
-
-    (, uint256 wantAmount) = payFees(assets, "withdraw");
-    asset.transfer(receiver, wantAmount);
-  }
-
-  function redeem(uint256 shares, address receiver, address owner_)
-    public
-    override
-    returns (uint256 assets)
-  {
-    assets = super.redeem(shares, address(this), owner_);
-
-    (, uint256 wantAmount) = payFees(assets, "withdraw");
-    asset.transfer(receiver, wantAmount);
+    emit Harvest(rewardAmount, wantAmount);
   }
 
   function _harvest(IERC20 reward) internal override returns (uint256 rewardAmount) {
@@ -113,8 +132,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   }
 
   function _tend() internal override returns (uint256 wantAmount, uint256 feesAmount) {
-    uint256 assets = asset.balanceOf(address(this));
-    (feesAmount, wantAmount) = payFees(assets, "harvest");
+    uint256 assets = IERC20(poolToken).balanceOf(address(this));
 
     uint256 lpTokensBefore = stargatePool.balanceOf(address(this));
 
@@ -123,41 +141,35 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     uint256 lpTokensAfter = stargatePool.balanceOf(address(this));
 
     uint256 lpTokens = lpTokensAfter - lpTokensBefore;
+    
+    (feesAmount, wantAmount) = payFees(lpTokens, "harvest");
 
-    stargateLPStaking.deposit(poolStakingId, lpTokens);
+    stargateLPStaking.deposit(poolStakingId, wantAmount);
   }
 
-  function beforeWithdraw(uint256 assets, uint256 shares) internal override {
+  function beforeWithdraw(uint256 assets, uint256 shares)
+    internal
+    override
+    returns (uint256)
+  {
     /// -----------------------------------------------------------------------
     /// Withdraw assets from Stargate
     /// -----------------------------------------------------------------------
-    // (, assets) = payFees(assets, "withdraw");
-    super.beforeWithdraw(assets, shares);
 
-    uint256 lpTokens = getStargateLP(assets);
+    stargateLPStaking.withdraw(poolStakingId, assets);
 
-    stargateLPStaking.withdraw(poolStakingId, lpTokens);
+    (, uint256 restAmount) = payFees(assets, "withdraw");
 
-    stargateRouter.instantRedeemLocal(
-      uint16(stargatePool.poolId()), lpTokens, address(this)
-    );
+    return super.beforeWithdraw(restAmount, shares);
   }
 
   function afterDeposit(uint256 assets, uint256 shares) internal virtual override {
     /// -----------------------------------------------------------------------
     /// Deposit assets into Stargate
     /// -----------------------------------------------------------------------
-    // (, assets) = payFees(assets, "deposit");
+    (, assets) = payFees(assets, "deposit");
 
-    uint256 lpTokensBefore = stargatePool.balanceOf(address(this));
-
-    stargateRouter.addLiquidity(stargatePool.poolId(), assets, address(this));
-
-    uint256 lpTokensAfter = stargatePool.balanceOf(address(this));
-
-    uint256 lpTokens = lpTokensAfter - lpTokensBefore;
-
-    stargateLPStaking.deposit(poolStakingId, lpTokens);
+    stargateLPStaking.deposit(poolStakingId, assets);
 
     super.afterDeposit(assets, shares);
   }
@@ -177,7 +189,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   }
 
   function maxWithdraw(address owner_) public view override returns (uint256) {
-    uint256 cash = asset.balanceOf(address(stargatePool));
+    uint256 cash = asset.balanceOf(address(stargateLPStaking));
 
     uint256 assetsBalance = convertToAssets(this.balanceOf(owner_));
 
@@ -185,7 +197,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   }
 
   function maxRedeem(address owner_) public view override returns (uint256) {
-    uint256 cash = asset.balanceOf(address(stargatePool));
+    uint256 cash = asset.balanceOf(address(stargateLPStaking));
 
     uint256 cashInShares = convertToShares(cash);
 
@@ -195,7 +207,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   }
 
   /// -----------------------------------------------------------------------
-  /// Internal stargate fuctions
+  /// Internal Stargate fuctions
   /// -----------------------------------------------------------------------
 
   function getStargateLP(uint256 amount_) internal view returns (uint256 lpTokens) {

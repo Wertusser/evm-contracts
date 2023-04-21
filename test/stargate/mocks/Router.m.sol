@@ -30,7 +30,7 @@ contract StargateRouterMock is IStargateRouter {
       return 0;
     }
     pool.transferFrom(msg.sender, address(this), _amountLP);
-    ERC20Mock(address(pool.lpToken())).approve(address(pool), _amountLP);
+    ERC20Mock(address(pool)).approve(address(pool), _amountLP);
 
     pool.instantRedeemLocal(_amountLP, _to);
 

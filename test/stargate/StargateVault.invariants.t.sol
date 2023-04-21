@@ -6,7 +6,7 @@ import { IERC20 as IIERC20 } from "forge-std/interfaces/IERC20.sol";
 
 import { ERC20Mock } from "../mocks/ERC20.m.sol";
 import { SwapperMock } from "../mocks/Swapper.m.sol";
-import { StargateVault } from "../../src/providers/stargate/StargateVault.sol";
+import { StargateVault, IStargatePool } from "../../src/providers/stargate/StargateVault.sol";
 import { ISwapper } from "../../src/periphery/Swapper.sol";
 import { FeesController } from "../../src/periphery/FeesController.sol";
 import { StargatePoolMock } from "./mocks/Pool.m.sol";
@@ -33,14 +33,14 @@ contract StargateVaultInvariants is ERC4626CompoundableInvariants {
     poolMock = new StargatePoolMock(0, underlying);
     routerMock = new StargateRouterMock(poolMock);
     stakingMock =
-      new StargateLPStakingMock(ERC20Mock(address(poolMock.lpToken())), reward);
+      new StargateLPStakingMock(ERC20Mock(address(poolMock)), reward);
 
     swapper = new SwapperMock(reward, underlying);
     feesController = new FeesController(owner);
 
     vault = new StargateVault(
           IIERC20(address(underlying)),
-          poolMock,
+          IStargatePool(address(poolMock)),
           routerMock,
           stakingMock,
           0,
@@ -60,7 +60,7 @@ contract StargateVaultInvariants is ERC4626CompoundableInvariants {
     excludeContract(address(underlying));
     excludeContract(address(reward));
     excludeContract(address(poolMock));
-    excludeContract(address(poolMock.lpToken()));
+    excludeContract(address(poolMock));
     excludeContract(address(feesController));
     excludeContract(address(routerMock));
     excludeContract(address(stakingMock));

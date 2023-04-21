@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import { ERC20 } from "solmate/tokens/ERC20.sol";
-import { ERC4626 } from "solmate/mixins/ERC4626.sol";
+import { ERC4626 } from "../../periphery/ERC4626.sol";
 import { IPool } from "./external/IPool.sol";
 import { AaveV3Vault } from "./AaveV3Vault.sol";
 import { ERC4626Factory } from "../../periphery/ERC4626Factory.sol";
