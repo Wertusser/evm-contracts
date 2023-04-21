@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity 0.8.13;
+pragma solidity ^0.8.13;
 
 interface IMulticall {
     /// @notice Call multiple functions in the current contract and return the data from all of them if they all succeed
