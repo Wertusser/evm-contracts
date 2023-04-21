@@ -6,27 +6,45 @@ import { IERC4626Compoundable } from "./ERC4626Compoundable.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 
 contract Harvester is Owned {
-  struct HarvestPayload {
+  struct HarvestRequest {
     address vault;
     address reward;
-    uint256 minWantAmount;
+    uint256 minAmountOut;
+  }
+
+  struct HarvestResponse {
+    uint256 rewardAmount;
+    uint256 wantAmount;
+    uint256 feesAmount;
   }
 
   constructor(address admin_) Owned(admin_) { }
 
-  function harvestTend(HarvestPayload memory payload)
+  function harvestTend(HarvestRequest memory payload)
     public
     onlyOwner
-    returns (uint256 rewardAmount, uint256 wantAmount, uint256 feesAmount)
+    returns (HarvestResponse memory response)
   {
     IERC4626Compoundable _vault = IERC4626Compoundable(payload.vault);
-    (rewardAmount,) = _vault.harvest(IERC20(payload.reward), payload.minWantAmount);
-    (wantAmount, feesAmount) = _vault.tend();
+
+    (uint256 rewardAmount,) = _vault.harvest(IERC20(payload.reward), payload.minAmountOut);
+    (uint256 wantAmount, uint256 feesAmount) = _vault.tend();
+
+    response.rewardAmount = rewardAmount;
+    response.wantAmount = wantAmount;
+    response.feesAmount = feesAmount;
   }
 
-  function multiHarvestTend(HarvestPayload[] calldata payloads) public onlyOwner {
-    for (uint16 i = 0; i < payloads.length; i++) {
-      harvestTend(payloads[i]);
+  function multiHarvestTend(HarvestRequest[] calldata payload)
+    public
+    onlyOwner
+    returns (HarvestResponse[] memory responses)
+  {
+    responses = new HarvestResponse[](payload.length);
+
+    for (uint32 i = 0; i < payload.length; i++) {
+      HarvestResponse memory response = harvestTend(payload[i]);
+      responses[i] = response;
     }
   }
 }

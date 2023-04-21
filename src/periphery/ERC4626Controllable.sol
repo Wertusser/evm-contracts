@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "solmate/auth/Owned.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
-import { ERC4626 } from "solmate/mixins/ERC4626.sol";
+import { ERC4626 } from "./ERC4626.sol";
 import { ERC20 } from "solmate/tokens/ERC20.sol";
 
 abstract contract ERC4626Controllable is ERC4626, Owned {
@@ -125,6 +125,14 @@ abstract contract ERC4626Controllable is ERC4626, Owned {
     return _totalAssets();
   }
 
+  function maxDeposit(address) public view virtual override returns (uint256) {
+    return depositLimit - totalAssets();
+  }
+
+  function maxMint(address) public view virtual override returns (uint256) {
+    return convertToShares(depositLimit - totalAssets());
+  }
+
   function pnl(address user) public view returns (int256) {
     uint256 totalDeposited = depositOf[user];
     uint256 totalWithdraw = withdrawOf[user] + this.maxWithdraw(user);
@@ -160,11 +168,12 @@ abstract contract ERC4626Controllable is ERC4626, Owned {
     virtual
     override
     nonReentrant
+    returns (uint256 assets)
   {
-    super.beforeWithdraw(amount, shares);
+    assets = super.beforeWithdraw(amount, shares);
 
-    storedTotalAssets -= amount;
-    withdrawOf[msg.sender] += amount;
+    storedTotalAssets -= assets;
+    withdrawOf[msg.sender] += assets;
   }
 
   function afterDeposit(uint256 amount, uint256 shares)

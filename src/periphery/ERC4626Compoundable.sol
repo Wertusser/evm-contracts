@@ -75,12 +75,15 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
 
   function harvest(IERC20 reward, uint256 swapAmountOut)
     public
+    virtual
     onlyKeeper
     returns (uint256 rewardAmount, uint256 wantAmount)
   {
-    rewardAmount = _harvest(reward);
+    _harvest(reward);
+    rewardAmount = reward.balanceOf(address(this));
 
     if (rewardAmount > 0) {
+      reward.approve(address(swapper), rewardAmount);
       wantAmount =
         swapper.swap(reward, IERC20(address(asset)), rewardAmount, swapAmountOut);
     } else {
@@ -90,7 +93,12 @@ abstract contract ERC4626Compoundable is IERC4626Compoundable, ERC4626Controllab
     emit Harvest(rewardAmount, wantAmount);
   }
 
-  function tend() public onlyKeeper returns (uint256 wantAmount, uint256 feesAmount) {
+  function tend()
+    public
+    virtual
+    onlyKeeper
+    returns (uint256 wantAmount, uint256 feesAmount)
+  {
     (wantAmount, feesAmount) = _tend();
 
     totalGain += wantAmount;
