@@ -32,10 +32,8 @@ contract CurveVaultInvariants is ERC4626CompoundableInvariants {
     feesController = new FeesController(address(0xdeaddead));
 
     vault = new CurveVault(
-        IERC20(address(underlying)),
-        pool,
         gauge,
-        0,
+        pool,
         2,
         swapper,
         feesController,

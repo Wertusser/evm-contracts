@@ -9,30 +9,30 @@ interface ICurvePool {
 
     function price_oracle() external view returns (uint256);
 
-    function add_liquidity(uint256[2] calldata amounts, uint256 min_mint_amount) external payable;
+    function add_liquidity(uint256[2] memory amounts, uint256 min_mint_amount) external payable;
 
-    function add_liquidity(uint256[2] calldata amounts, uint256 min_mint_amount, bool _use_underlying)
+    function add_liquidity(uint256[2] memory amounts, uint256 min_mint_amount, bool _use_underlying)
         external
         payable
         returns (uint256);
 
-    function add_liquidity(uint256[3] calldata amounts, uint256 min_mint_amount, bool _use_underlying)
+    function add_liquidity(uint256[3] memory amounts, uint256 min_mint_amount, bool _use_underlying)
         external
         payable
         returns (uint256);
 
-    function add_liquidity(address pool, uint256[4] calldata amounts, uint256 min_mint_amount) external;
+    function add_liquidity(address pool, uint256[4] memory amounts, uint256 min_mint_amount) external;
 
-    function add_liquidity(uint256[4] calldata amounts, uint256 min_mint_amount, bool _use_underlying)
+    function add_liquidity(uint256[4] memory amounts, uint256 min_mint_amount, bool _use_underlying)
         external
         payable
         returns (uint256);
 
-    function add_liquidity(uint256[3] calldata amounts, uint256 min_mint_amount) external payable;
+    function add_liquidity(uint256[3] memory amounts, uint256 min_mint_amount) external payable;
 
-    function add_liquidity(uint256[4] calldata amounts, uint256 min_mint_amount) external payable;
+    function add_liquidity(uint256[4] memory amounts, uint256 min_mint_amount) external payable;
 
-    function add_liquidity(uint256[] calldata amounts, uint256 min_mint_amount) external payable;
+    function add_liquidity(uint256[] memory amounts, uint256 min_mint_amount) external payable;
 
     function remove_liquidity_imbalance(uint256[2] calldata amounts, uint256 max_burn_amount) external;
 

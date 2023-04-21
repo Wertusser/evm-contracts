@@ -9,125 +9,121 @@ import { ICurveGauge, ICurveMinter } from "./external/ICurveGauge.sol";
 import "forge-std/interfaces/IERC20.sol";
 
 contract CurveVault is ERC4626Compoundable, WithFees {
-  uint8 public immutable coins;
-  ///@notice curve pool contract
-  ICurvePool public immutable curvePool;
   ///@notice curve gauge
   ICurveGauge public immutable curveGauge;
-  ///@notice curve pool lp token
-  IERC20 public immutable lpToken;
+  ///@notice curve pool contract
+  ICurvePool public immutable curvePool;
+  ///@notice total coins in curve pool
+  uint8 public immutable coins;
   ///@notice coin id in curve pool
-  uint8 public immutable coinId;
+  uint8 public coinId;
 
   constructor(
-    IERC20 asset_,
-    ICurvePool pool_,
     ICurveGauge gauge_,
-    uint8 coinId_,
+    ICurvePool pool_,
     uint8 coins_,
     ISwapper swapper_,
     IFeesController feesController_,
     address owner_
   )
-    ERC4626Compoundable(asset_, _vaultName(asset_), _vaultSymbol(asset_), swapper_, owner_)
+    ERC4626Compoundable(
+      IERC20(gauge_.lp_token()),
+      _vaultName(IERC20(gauge_.lp_token())),
+      _vaultSymbol(IERC20(gauge_.lp_token())),
+      swapper_,
+      owner_
+    )
     WithFees(feesController_)
   {
     curvePool = pool_;
     curveGauge = gauge_;
-    lpToken = IERC20(gauge_.lp_token());
 
-    coinId = coinId_;
+    coinId = 0;
     coins = coins_;
 
-    require(pool_.coins(int128(int8(coinId))) == address(asset_));
-    require(pool_.token() == address(lpToken));
+    require(coinId < coins);
+    require(curvePool.token() == curveGauge.lp_token());
+  }
+
+  function setCoinId(uint8 id) public onlyOwner {
+    coinId = id;
+  }
+
+  function underlyingAsset() public view returns (address) {
+    return curvePool.coins(int128(int8(coinId)));
   }
 
   /// -----------------------------------------------------------------------
   /// ERC4626 overrides
   /// -----------------------------------------------------------------------
   function _totalAssets() internal view override returns (uint256) {
-    uint256 lpTokens = curveGauge.balanceOf(address(this));
-    return curvePool.calc_withdraw_one_coin(lpTokens, int128(int8(coinId)));
+    return curveGauge.balanceOf(address(this));
+  }
+
+  function harvest(IERC20 reward, uint256 swapAmountOut)
+    public
+    override
+    onlyKeeper
+    returns (uint256 rewardAmount, uint256 wantAmount)
+  {
+    _harvest(reward);
+    rewardAmount = reward.balanceOf(address(this));
+
+    if (rewardAmount > 0) {
+      reward.approve(address(swapper), rewardAmount);
+      wantAmount =
+        swapper.swap(reward, IERC20(underlyingAsset()), rewardAmount, swapAmountOut);
+    } else {
+      wantAmount = 0;
+    }
+
+    emit Harvest(rewardAmount, wantAmount);
   }
 
   function _harvest(IERC20 reward) internal override returns (uint256 rewardAmount) {
-    // require(curveGauge.claimable_tokens(address(this)) > 0, "Error: zero rewards to claim");
-
-    uint256 rewardBefore = reward.balanceOf(address(this));
     curveGauge.claim_rewards();
-    uint256 rewardAfter = reward.balanceOf(address(this));
-    rewardAmount = rewardAfter - rewardBefore;
+    rewardAmount = reward.balanceOf(address(this));
   }
 
   function _tend() internal override returns (uint256 wantAmount, uint256 feesAmount) {
-    wantAmount = asset.balanceOf(address(this));
+    IERC20 underlying = IERC20(underlyingAsset());
+    IERC20 lpToken = IERC20(curvePool.token());
+
+    uint256 assets = underlying.balanceOf(address(this));
+
+    uint256[] memory coinsAmount = new uint256[](coins);
+    coinsAmount[coinId] = assets;
+
+    uint256 lpTokensBefore = lpToken.balanceOf(address(this));
+
+    uint256 expectedLp = curvePool.calc_token_amount(coinsAmount, true);
+    curvePool.add_liquidity(coinsAmount, expectedLp);
+
+    uint256 lpTokens = lpToken.balanceOf(address(this)) - lpTokensBefore;
+
+    (feesAmount, wantAmount) = payFees(lpTokens, "harvest");
+
+    curveGauge.deposit(wantAmount);
   }
 
-  function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal override {
-    _unzapLiquidity(assets);
+  function beforeWithdraw(uint256 assets, uint256 shares)
+    internal
+    override
+    returns (uint256)
+  {
+    curveGauge.withdraw(assets);
+
+    (, uint256 restAmount) = payFees(assets, "withdraw");
+
+    return super.beforeWithdraw(restAmount, shares);
   }
 
-  function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal override {
-    _zapLiquidity(assets);
-  }
+  function afterDeposit(uint256 assets, uint256 shares) internal override {
+    (, assets) = payFees(assets, "deposit");
 
-  function maxDeposit(address) public view virtual override returns (uint256) {
-    return !curvePool.is_killed() ? depositLimit - totalAssets() : 0;
-  }
+    curveGauge.deposit(assets);
 
-  function maxMint(address) public view virtual override returns (uint256) {
-    return !curvePool.is_killed() ? convertToShares(depositLimit - totalAssets()) : 0;
-  }
-
-  function maxWithdraw(address owner_) public view virtual override returns (uint256) {
-    if (curvePool.is_killed()) return 0;
-    uint256 totalLiquidity = asset.balanceOf(address(curvePool));
-    uint256 assetsBalance = convertToAssets(this.balanceOf(owner_));
-    return totalLiquidity < assetsBalance ? totalLiquidity : assetsBalance;
-  }
-
-  function maxRedeem(address owner_) public view virtual override returns (uint256) {
-    if (curvePool.is_killed()) return 0;
-    uint256 totalLiquidity = asset.balanceOf(address(curvePool));
-    uint256 totalLiquidityInShares = convertToShares(totalLiquidity);
-    uint256 shareBalance = this.balanceOf(owner_);
-    return totalLiquidityInShares < shareBalance ? totalLiquidityInShares : shareBalance;
-  }
-
-  /// -----------------------------------------------------------------------
-  /// Curve integration
-  /// -----------------------------------------------------------------------
-
-  function _zapLiquidity(uint256 assets) internal returns (uint256) {
-    /// -----------------------------------------------------------------------
-    /// Add liquidity into Curve
-    /// -----------------------------------------------------------------------
-    asset.approve(address(curvePool), assets);
-
-    uint256[] memory amounts = new uint256[](coins);
-    amounts[coinId] = assets;
-
-    curvePool.add_liquidity(amounts, 0);
-
-    uint256 lpTokens = lpToken.balanceOf(address(this));
-    curveGauge.deposit(lpTokens);
-
-    return assets;
-  }
-
-  function _unzapLiquidity(uint256 assets) internal returns (uint256) {
-    /// -----------------------------------------------------------------------
-    /// Remove liquidity from Curve pool imbalance
-    /// -----------------------------------------------------------------------
-    uint256[] memory amounts = new uint256[](coins);
-    amounts[coinId] = assets;
-
-    uint256 lpTokens = curvePool.calc_token_amount(amounts, false);
-
-    curveGauge.withdraw(lpTokens);
-
-    curvePool.remove_liquidity_one_coin(lpTokens, int128(int8(coinId)), 0);
+    super.afterDeposit(assets, shares);
   }
 
   /// -----------------------------------------------------------------------

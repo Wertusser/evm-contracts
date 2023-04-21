@@ -31,10 +31,8 @@ contract CurveVaultStdTest is ERC4626Test {
     feesController = new FeesController(msg.sender);
 
     vault = new CurveVault(
-        IERC20(address(underlying)),
-        pool,
         gauge,
-        0,
+        pool,
         2,
         swapper,
         feesController,
