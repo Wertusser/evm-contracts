@@ -17,6 +17,8 @@ contract CurveVault is ERC4626Compoundable, WithFees {
   uint8 public immutable coins;
   ///@notice coin id in curve pool
   uint8 public coinId;
+  ///@notice coin id in curve pool
+  IERC20 private lpToken;
 
   constructor(
     ICurveGauge gauge_,
@@ -35,14 +37,22 @@ contract CurveVault is ERC4626Compoundable, WithFees {
     )
     WithFees(feesController_)
   {
+    try pool_.token() returns (address lpTokenAddress) {
+      lpToken = IERC20(lpTokenAddress);
+    } catch {
+      lpToken = IERC20(address(pool_));
+    }
+
+    require(address(lpToken) == gauge_.lp_token());
+
     curvePool = pool_;
     curveGauge = gauge_;
 
     coinId = 0;
     coins = coins_;
 
-    require(coinId < coins);
-    require(curvePool.token() == curveGauge.lp_token());
+    lpToken.approve(address(gauge_), type(uint256).max);
+    lpToken.approve(address(feesController_), type(uint256).max);
   }
 
   function setCoinId(uint8 id) public onlyOwner {
@@ -50,7 +60,107 @@ contract CurveVault is ERC4626Compoundable, WithFees {
   }
 
   function underlyingAsset() public view returns (address) {
-    return curvePool.coins(int128(int8(coinId)));
+    try curvePool.coins(coinId) returns (address token) {
+      return token;
+    } catch {
+      return curvePool.coins(int128(int8(coinId)));
+    }
+  }
+
+  /// -----------------------------------------------------------------------
+  /// Deposit/Wihtdraw Helpers
+  /// -----------------------------------------------------------------------
+  function zapDeposit(uint256 assets, uint8 coinId_, address receiver)
+    public
+    returns (uint256 shares)
+  {
+    IERC20 depositAsset = IERC20(curvePool.coins(coinId_));
+    depositAsset.transferFrom(msg.sender, address(this), assets);
+    depositAsset.approve(address(curvePool), assets);
+
+    uint256 lpTokensBefore = lpToken.balanceOf(address(this));
+
+    if (coins == 2) {
+      uint256[2] memory coinsAmount;
+      coinsAmount[coinId_] = assets;
+      uint256 expectedLp = curvePool.calc_token_amount(coinsAmount, true);
+      curvePool.add_liquidity(coinsAmount, expectedLp * 99 / 100);
+    }
+
+    if (coins == 3) {
+      uint256[3] memory coinsAmount;
+      coinsAmount[coinId_] = assets;
+      uint256 expectedLp = curvePool.calc_token_amount(coinsAmount, true);
+      curvePool.add_liquidity(coinsAmount, expectedLp * 99 / 100);
+    }
+
+    if (coins == 4) {
+      uint256[4] memory coinsAmount;
+      coinsAmount[coinId_] = assets;
+      uint256 expectedLp = curvePool.calc_token_amount(coinsAmount, true);
+      curvePool.add_liquidity(coinsAmount, expectedLp * 99 / 100);
+    }
+
+    uint256 lpTokens = lpToken.balanceOf(address(this)) - lpTokensBefore;
+
+    lpToken.transfer(msg.sender, lpTokens);
+
+    shares = super.deposit(lpTokens, receiver);
+  }
+
+  function zapWithdraw(uint256 assets, uint8 coinId_, address receiver, address owner_)
+    public
+    returns (uint256 shares)
+  {
+    IERC20 withdrawAsset = IERC20(curvePool.coins(coinId_));
+
+    uint256 lpTokensBefore = lpToken.balanceOf(address(this));
+
+    if (coins == 2) {
+      uint256[2] memory coinsAmount;
+      coinsAmount[coinId_] = assets;
+      assets = curvePool.calc_token_amount(coinsAmount, true);
+    }
+
+    if (coins == 3) {
+      uint256[3] memory coinsAmount;
+      coinsAmount[coinId_] = assets;
+      assets = curvePool.calc_token_amount(coinsAmount, true);
+    }
+
+    if (coins == 4) {
+      uint256[4] memory coinsAmount;
+      coinsAmount[coinId_] = assets;
+      assets = curvePool.calc_token_amount(coinsAmount, true);
+    }
+
+    shares = super.withdraw(assets, address(this), owner_);
+
+    uint256 lpTokens = lpToken.balanceOf(address(this)) - lpTokensBefore;
+
+    uint256 withdrawAmountBefore = withdrawAsset.balanceOf(address(this));
+
+    try curvePool.remove_liquidity_one_coin(lpTokens, coinId_, 0) { }
+    catch {
+      curvePool.remove_liquidity_one_coin(lpTokens, int128(int8(coinId_)), 0);
+    }
+
+    uint256 withdrawAmount = withdrawAsset.balanceOf(address(this)) - withdrawAmountBefore;
+
+    withdrawAsset.transfer(receiver, withdrawAmount);
+  }
+
+  function maxZapWithdraw(address owner_, uint8 coinId_)
+    public
+    view
+    returns (uint256 assets)
+  {
+    uint256 withdrawal = maxWithdraw(owner_);
+    try curvePool.calc_withdraw_one_coin(withdrawal, coinId_) returns (uint256 assets_) {
+      return assets_;
+    } catch {
+      return curvePool.calc_withdraw_one_coin(withdrawal, int128(int8(coinId_)));
+    }
   }
 
   /// -----------------------------------------------------------------------
@@ -87,17 +197,31 @@ contract CurveVault is ERC4626Compoundable, WithFees {
 
   function _tend() internal override returns (uint256 wantAmount, uint256 feesAmount) {
     IERC20 underlying = IERC20(underlyingAsset());
-    IERC20 lpToken = IERC20(curvePool.token());
-
     uint256 assets = underlying.balanceOf(address(this));
-
-    uint256[] memory coinsAmount = new uint256[](coins);
-    coinsAmount[coinId] = assets;
+    underlying.approve(address(curvePool), assets);
 
     uint256 lpTokensBefore = lpToken.balanceOf(address(this));
 
-    uint256 expectedLp = curvePool.calc_token_amount(coinsAmount, true);
-    curvePool.add_liquidity(coinsAmount, expectedLp);
+    if (coins == 2) {
+      uint256[2] memory coinsAmount;
+      coinsAmount[coinId] = assets;
+      uint256 expectedLp = curvePool.calc_token_amount(coinsAmount, true);
+      curvePool.add_liquidity(coinsAmount, expectedLp * 99 / 100);
+    }
+
+    if (coins == 3) {
+      uint256[3] memory coinsAmount;
+      coinsAmount[coinId] = assets;
+      uint256 expectedLp = curvePool.calc_token_amount(coinsAmount, true);
+      curvePool.add_liquidity(coinsAmount, expectedLp * 99 / 100);
+    }
+
+    if (coins == 4) {
+      uint256[4] memory coinsAmount;
+      coinsAmount[coinId] = assets;
+      uint256 expectedLp = curvePool.calc_token_amount(coinsAmount, true);
+      curvePool.add_liquidity(coinsAmount, expectedLp * 99 / 100);
+    }
 
     uint256 lpTokens = lpToken.balanceOf(address(this)) - lpTokensBefore;
 
@@ -135,6 +259,6 @@ contract CurveVault is ERC4626Compoundable, WithFees {
   }
 
   function _vaultSymbol(IERC20 asset_) internal view returns (string memory vaultSymbol) {
-    vaultSymbol = string.concat("ycvx`", asset_.symbol());
+    vaultSymbol = string.concat("ycrv`", asset_.symbol());
   }
 }

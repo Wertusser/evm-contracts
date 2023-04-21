@@ -59,7 +59,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   }
 
   /// -----------------------------------------------------------------------
-  /// Multicall Helpers
+  /// Deposit/Wihtdraw Helpers
   /// -----------------------------------------------------------------------
   function zapDeposit(uint256 assets, address receiver) public returns (uint256 shares) {
     IERC20(stargatePool.token()).transferFrom(msg.sender, address(this), assets);
@@ -68,9 +68,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
 
     stargateRouter.addLiquidity(stargatePool.poolId(), assets, msg.sender);
 
-    uint256 lpTokensAfter = stargatePool.balanceOf(msg.sender);
-
-    uint256 lpTokens = lpTokensAfter - lpTokensBefore;
+    uint256 lpTokens = stargatePool.balanceOf(msg.sender) - lpTokensBefore;
 
     shares = super.deposit(lpTokens, receiver);
   }
@@ -85,9 +83,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
 
     shares = super.withdraw(assets, address(this), owner_);
 
-    uint256 lpTokensAfter = stargatePool.balanceOf(address(this));
-
-    uint256 lpTokens = lpTokensAfter - lpTokensBefore;
+    uint256 lpTokens = stargatePool.balanceOf(address(this)) - lpTokensBefore;
 
     stargateRouter.instantRedeemLocal(uint16(stargatePool.poolId()), lpTokens, receiver);
   }

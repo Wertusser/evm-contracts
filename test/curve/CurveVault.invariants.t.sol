@@ -6,7 +6,7 @@ import { SwapperMock } from "../mocks/Swapper.m.sol";
 import { CurveVault } from "../../src/providers/curve/CurveVault.sol";
 import { ISwapper } from "../../src/periphery/Swapper.sol";
 import { FeesController } from "../../src/periphery/FeesController.sol";
-import { CurvePoolMock } from "./mocks/CurvePool.m.sol";
+import { CurvePoolMock, ICurvePool } from "./mocks/CurvePool.m.sol";
 import { CurveGaugeMock } from "./mocks/CurveGauge.m.sol";
 
 contract CurveVaultInvariants is ERC4626CompoundableInvariants {
@@ -33,7 +33,7 @@ contract CurveVaultInvariants is ERC4626CompoundableInvariants {
 
     vault = new CurveVault(
         gauge,
-        pool,
+        ICurvePool(address(pool)),
         2,
         swapper,
         feesController,

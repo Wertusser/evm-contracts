@@ -4,7 +4,7 @@ pragma solidity >=0.8.0 <0.9.0;
 import { ERC4626Test } from "erc4626-tests/ERC4626.test.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 
-import { CurvePoolMock } from "./mocks/CurvePool.m.sol";
+import { CurvePoolMock, ICurvePool } from "./mocks/CurvePool.m.sol";
 import { CurveGaugeMock } from "./mocks/CurveGauge.m.sol";
 import { ERC20Mock } from "../mocks/ERC20.m.sol";
 import { CurveVault } from "../../src/providers/curve/CurveVault.sol";
@@ -32,7 +32,8 @@ contract CurveVaultStdTest is ERC4626Test {
 
     vault = new CurveVault(
         gauge,
-        pool,
+       
+        ICurvePool(address(pool)),
         2,
         swapper,
         feesController,
