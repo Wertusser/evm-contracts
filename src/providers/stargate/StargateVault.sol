@@ -6,9 +6,9 @@ import "./external/IStargateRouter.sol";
 import "./external/IStargatePool.sol";
 import "../../periphery/FeesController.sol";
 import "../../periphery/Swapper.sol";
-import "../../periphery/ERC4626Compoundable.sol";
+import "../../periphery/ERC4626Harvest.sol";
 
-contract StargateVault is ERC4626Compoundable, WithFees {
+contract StargateVault is ERC4626Harvest, WithFees {
   /// -----------------------------------------------------------------------
   /// Params
   /// -----------------------------------------------------------------------
@@ -38,7 +38,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     IFeesController feesController_,
     address owner_
   )
-    ERC4626Compoundable(
+    ERC4626Harvest(
       IERC20(address(pool_)),
       _vaultName(asset_),
       _vaultSymbol(asset_),
@@ -96,38 +96,23 @@ contract StargateVault is ERC4626Compoundable, WithFees {
   /// ERC4626 overrides
   /// -----------------------------------------------------------------------
 
-  function _totalAssets() internal view virtual override returns (uint256) {
+  function _totalFunds() internal view virtual override returns (uint256) {
     IStargateLPStaking.UserInfo memory info =
       stargateLPStaking.userInfo(poolStakingId, address(this));
     return info.amount;
   }
 
-  function harvest(IERC20 reward, uint256 swapAmountOut)
-    public
+  function _collectRewards(IERC20 reward)
+    internal
     override
-    onlyKeeper
-    returns (uint256 rewardAmount, uint256 wantAmount)
+    returns (uint256 rewardAmount)
   {
-    _harvest(reward);
-    rewardAmount = reward.balanceOf(address(this));
-
-    if (rewardAmount > 0) {
-      reward.approve(address(swapper), rewardAmount);
-      wantAmount = swapper.swap(reward, IERC20(poolToken), rewardAmount, swapAmountOut);
-    } else {
-      wantAmount = 0;
-    }
-
-    emit Harvest(rewardAmount, wantAmount);
-  }
-
-  function _harvest(IERC20 reward) internal override returns (uint256 rewardAmount) {
     stargateLPStaking.withdraw(poolStakingId, 0);
 
     rewardAmount = reward.balanceOf(address(this));
   }
 
-  function _tend() internal override returns (uint256 wantAmount, uint256 feesAmount) {
+  function _reinvest() internal override returns (uint256 wantAmount, uint256 feesAmount) {
     uint256 assets = IERC20(poolToken).balanceOf(address(this));
 
     uint256 lpTokensBefore = stargatePool.balanceOf(address(this));
@@ -137,7 +122,7 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     uint256 lpTokensAfter = stargatePool.balanceOf(address(this));
 
     uint256 lpTokens = lpTokensAfter - lpTokensBefore;
-    
+
     (feesAmount, wantAmount) = payFees(lpTokens, "harvest");
 
     stargateLPStaking.deposit(poolStakingId, wantAmount);
@@ -168,20 +153,6 @@ contract StargateVault is ERC4626Compoundable, WithFees {
     stargateLPStaking.deposit(poolStakingId, assets);
 
     super.afterDeposit(assets, shares);
-  }
-
-  function maxDeposit(address) public view override returns (uint256) {
-    if (totalAssets() >= depositLimit || !canDeposit) {
-      return 0;
-    }
-    return depositLimit - totalAssets();
-  }
-
-  function maxMint(address) public view override returns (uint256) {
-    if (totalAssets() >= depositLimit || !canDeposit) {
-      return 0;
-    }
-    return convertToShares(depositLimit - totalAssets());
   }
 
   function maxWithdraw(address owner_) public view override returns (uint256) {

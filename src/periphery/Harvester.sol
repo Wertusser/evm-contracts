@@ -2,8 +2,9 @@
 pragma solidity 0.8.13;
 
 import { Owned } from "solmate/auth/Owned.sol";
-import { IERC4626Compoundable } from "./ERC4626Compoundable.sol";
+import { IERC4626Harvest } from "./ERC4626Harvest.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
+import { IERC4626 } from "forge-std/interfaces/IERC4626.sol";
 
 contract Harvester is Owned {
   struct HarvestRequest {
@@ -25,9 +26,16 @@ contract Harvester is Owned {
     onlyOwner
     returns (HarvestResponse memory response)
   {
-    IERC4626Compoundable _vault = IERC4626Compoundable(payload.vault);
+    IERC4626Harvest _vault = IERC4626Harvest(payload.vault);
+    address asset = IERC4626(payload.vault).asset();
 
-    (uint256 rewardAmount,) = _vault.harvest(IERC20(payload.reward), payload.minAmountOut);
+    uint256 rewardAmount = _vault.harvest(IERC20(payload.reward));
+    _vault.swap(
+      IERC20(payload.reward),
+      IERC20(asset),
+      rewardAmount,
+      payload.minAmountOut
+    );
     (uint256 wantAmount, uint256 feesAmount) = _vault.tend();
 
     response.rewardAmount = rewardAmount;

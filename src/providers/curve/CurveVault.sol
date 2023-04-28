@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
-import "../../periphery/ERC4626Compoundable.sol";
 import "../../periphery/FeesController.sol";
-import "../../periphery/ERC4626Compoundable.sol";
+import "../../periphery/ERC4626Harvest.sol";
 import { ICurvePool } from "./external/ICurvePool.sol";
 import { ICurveGauge, ICurveMinter } from "./external/ICurveGauge.sol";
 import "forge-std/interfaces/IERC20.sol";
 
-contract CurveVault is ERC4626Compoundable, WithFees {
+contract CurveVault is ERC4626Harvest, WithFees {
   ///@notice curve gauge
   ICurveGauge public immutable curveGauge;
   ///@notice curve pool contract
@@ -28,7 +27,7 @@ contract CurveVault is ERC4626Compoundable, WithFees {
     IFeesController feesController_,
     address owner_
   )
-    ERC4626Compoundable(
+    ERC4626Harvest(
       IERC20(gauge_.lp_token()),
       _vaultName(IERC20(gauge_.lp_token())),
       _vaultSymbol(IERC20(gauge_.lp_token())),
@@ -166,36 +165,16 @@ contract CurveVault is ERC4626Compoundable, WithFees {
   /// -----------------------------------------------------------------------
   /// ERC4626 overrides
   /// -----------------------------------------------------------------------
-  function _totalAssets() internal view override returns (uint256) {
+  function _totalFunds() internal view override returns (uint256) {
     return curveGauge.balanceOf(address(this));
   }
 
-  function harvest(IERC20 reward, uint256 swapAmountOut)
-    public
-    override
-    onlyKeeper
-    returns (uint256 rewardAmount, uint256 wantAmount)
-  {
-    _harvest(reward);
-    rewardAmount = reward.balanceOf(address(this));
-
-    if (rewardAmount > 0) {
-      reward.approve(address(swapper), rewardAmount);
-      wantAmount =
-        swapper.swap(reward, IERC20(underlyingAsset()), rewardAmount, swapAmountOut);
-    } else {
-      wantAmount = 0;
-    }
-
-    emit Harvest(rewardAmount, wantAmount);
-  }
-
-  function _harvest(IERC20 reward) internal override returns (uint256 rewardAmount) {
+  function _collectRewards(IERC20 reward) internal override returns (uint256 rewardAmount) {
     curveGauge.claim_rewards();
     rewardAmount = reward.balanceOf(address(this));
   }
 
-  function _tend() internal override returns (uint256 wantAmount, uint256 feesAmount) {
+  function _reinvest() internal override returns (uint256 wantAmount, uint256 feesAmount) {
     IERC20 underlying = IERC20(underlyingAsset());
     uint256 assets = underlying.balanceOf(address(this));
     underlying.approve(address(curvePool), assets);

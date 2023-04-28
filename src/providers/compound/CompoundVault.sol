@@ -8,9 +8,9 @@ import "./external/IComptroller.sol";
 import "./external/libCompound.sol";
 import "../../periphery/FeesController.sol";
 import "../../periphery/Swapper.sol";
-import "../../periphery/ERC4626Compoundable.sol";
+import "../../periphery/ERC4626Harvest.sol";
 
-contract CompoundVault is ERC4626Compoundable, WithFees {
+contract CompoundVault is ERC4626Harvest, WithFees {
   /// -----------------------------------------------------------------------
   /// Libraries usage
   /// -----------------------------------------------------------------------
@@ -41,7 +41,7 @@ contract CompoundVault is ERC4626Compoundable, WithFees {
     IFeesController feesController_,
     address owner_
   )
-    ERC4626Compoundable(asset_, _vaultName(asset_), _vaultSymbol(asset_), swapper_, owner_)
+    ERC4626Harvest(asset_, _vaultName(asset_), _vaultSymbol(asset_), swapper_, owner_)
     WithFees(feesController_)
   {
     cToken = cToken_;
@@ -55,11 +55,11 @@ contract CompoundVault is ERC4626Compoundable, WithFees {
   /// -----------------------------------------------------------------------
   /// ERC4626 overrides
   /// -----------------------------------------------------------------------
-  function _totalAssets() internal view virtual override returns (uint256) {
+  function _totalFunds() internal view virtual override returns (uint256) {
     return cToken.viewUnderlyingBalanceOf(address(this));
   }
 
-  function _harvest(IERC20 reward)
+  function _collectRewards(IERC20 reward)
     internal
     virtual
     override
@@ -70,7 +70,7 @@ contract CompoundVault is ERC4626Compoundable, WithFees {
     return reward.balanceOf(address(this));
   }
 
-  function _tend()
+  function _reinvest()
     internal
     virtual
     override
@@ -114,26 +114,26 @@ contract CompoundVault is ERC4626Compoundable, WithFees {
     super.afterDeposit(assets, shares);
   }
 
-  function maxDeposit(address) public view override returns (uint256) {
+  function maxDeposit(address owner_) public view override returns (uint256) {
     if (comptroller.mintGuardianPaused(cToken)) return 0;
-    return depositLimit - totalAssets();
+    return super.maxDeposit(owner_);
   }
 
-  function maxMint(address) public view override returns (uint256) {
+  function maxMint(address owner_) public view override returns (uint256) {
     if (comptroller.mintGuardianPaused(cToken)) return 0;
-    return depositLimit - totalAssets();
+    return super.maxMint(owner_);
   }
 
-  function maxWithdraw(address owner) public view override returns (uint256) {
+  function maxWithdraw(address owner_) public view override returns (uint256) {
     uint256 cash = cToken.getCash();
-    uint256 assetsBalance = convertToAssets(balanceOf[owner]);
+    uint256 assetsBalance = convertToAssets(balanceOf[owner_]);
     return cash < assetsBalance ? cash : assetsBalance;
   }
 
-  function maxRedeem(address owner) public view override returns (uint256) {
+  function maxRedeem(address owner_) public view override returns (uint256) {
     uint256 cash = cToken.getCash();
     uint256 cashInShares = convertToShares(cash);
-    uint256 shareBalance = balanceOf[owner];
+    uint256 shareBalance = balanceOf[owner_];
     return cashInShares < shareBalance ? cashInShares : shareBalance;
   }
 

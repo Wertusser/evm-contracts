@@ -7,9 +7,9 @@ import { IPool } from "./external/IPool.sol";
 import { IRewardsController } from "./external/IRewardsController.sol";
 import "../../periphery/FeesController.sol";
 import "../../periphery/Swapper.sol";
-import "../../periphery/ERC4626Compoundable.sol";
+import "../../periphery/ERC4626Owned.sol";
 
-contract AaveV3Vault is ERC4626Compoundable, WithFees {
+contract AaveV3Vault is ERC4626Owned, WithFees {
   /// -----------------------------------------------------------------------
   /// Libraries usage
   /// -----------------------------------------------------------------------
@@ -60,7 +60,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     IFeesController feesController_,
     address owner_
   )
-    ERC4626Compoundable(asset_, _vaultName(asset_), _vaultSymbol(asset_), swapper_, owner_)
+    ERC4626Owned(asset_, _vaultName(asset_), _vaultSymbol(asset_), owner_)
     WithFees(feesController_)
   {
     aToken = aToken_;
@@ -76,36 +76,36 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
   /// -----------------------------------------------------------------------
   /// ERC4626 overrides
   /// -----------------------------------------------------------------------
-  function _totalAssets() internal view virtual override returns (uint256) {
+  function totalAssets() public view override returns (uint256) {
     // aTokens use rebasing to accrue interest, so the total assets is just the aToken balance
     return aToken.balanceOf(address(this));
   }
 
-  function _harvest(IERC20 reward)
-    internal
-    virtual
-    override
-    returns (uint256 rewardAmount)
-  {
-    address[] memory assets = new address[](1);
-    assets[0] = address(asset);
+  // function _harvest(IERC20 reward)
+  //   internal
+  //   virtual
+  //   override
+  //   returns (uint256 rewardAmount)
+  // {
+  //   address[] memory assets = new address[](1);
+  //   assets[0] = address(asset);
 
-    (, uint256[] memory claimedAmounts) =
-      rewardsController.claimAllRewards(assets, address(this));
-    return claimedAmounts[0];
-  }
+  //   (, uint256[] memory claimedAmounts) =
+  //     rewardsController.claimAllRewards(assets, address(this));
+  //   return claimedAmounts[0];
+  // }
 
-  function _tend()
-    internal
-    virtual
-    override
-    returns (uint256 wantAmount, uint256 feesAmount)
-  {
-    uint256 assets = asset.balanceOf(address(this));
-    (feesAmount, wantAmount) = payFees(assets, "harvest");
+  // function _tend()
+  //   internal
+  //   virtual
+  //   override
+  //   returns (uint256 wantAmount, uint256 feesAmount)
+  // {
+  //   uint256 assets = asset.balanceOf(address(this));
+  //   (feesAmount, wantAmount) = payFees(assets, "harvest");
 
-    lendingPool.supply(address(asset), wantAmount, address(this), 0);
-  }
+  //   lendingPool.supply(address(asset), wantAmount, address(this), 0);
+  // }
 
   function beforeWithdraw(uint256 assets, uint256 shares)
     internal
@@ -133,10 +133,7 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     super.afterDeposit(assets, shares);
   }
 
-  function maxDeposit(address) public view virtual override returns (uint256) {
-    if (totalAssets() >= depositLimit) {
-      return 0;
-    }
+  function maxDeposit(address owner_) public view virtual override returns (uint256) {
     // check if asset is paused
     uint256 configData = lendingPool.getReserveData(address(asset)).configuration.data;
 
@@ -145,23 +142,20 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     }
 
     // handle supply cap
+    uint256 limitCap = super.maxDeposit(owner_);
     uint256 supplyCapInWholeTokens = _getSupplyCap(configData);
     if (supplyCapInWholeTokens == 0) {
-      return depositLimit - totalAssets();
+      return limitCap;
     }
 
     uint8 tokenDecimals = _getDecimals(configData);
     uint256 supplyCap =
       supplyCapInWholeTokens * 10 ** tokenDecimals - aToken.totalSupply();
-    uint256 limitCap = depositLimit - totalAssets();
 
     return limitCap < supplyCap ? limitCap : supplyCap;
   }
 
-  function maxMint(address) public view virtual override returns (uint256) {
-    if (totalAssets() >= depositLimit) {
-      return 0;
-    }
+  function maxMint(address owner_) public view virtual override returns (uint256) {
     // check if asset is paused
     uint256 configData = lendingPool.getReserveData(address(asset)).configuration.data;
     if (!(_getActive(configData) && !_getFrozen(configData) && !_getPaused(configData))) {
@@ -171,13 +165,13 @@ contract AaveV3Vault is ERC4626Compoundable, WithFees {
     // handle supply cap
     uint256 supplyCapInWholeTokens = _getSupplyCap(configData);
     if (supplyCapInWholeTokens == 0) {
-      return convertToShares(depositLimit - totalAssets());
+      return super.maxMint(owner_);
     }
 
     uint8 tokenDecimals = _getDecimals(configData);
     uint256 supplyCap =
       supplyCapInWholeTokens * 10 ** tokenDecimals - aToken.totalSupply();
-    uint256 limitCap = depositLimit - totalAssets();
+    uint256 limitCap = super.maxDeposit(owner_);
 
     return convertToShares(limitCap < supplyCap ? limitCap : supplyCap);
   }
