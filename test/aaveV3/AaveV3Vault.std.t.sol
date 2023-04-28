@@ -53,7 +53,7 @@ contract AaveV3VaultStdTest is ERC4626Test {
     );
 
     vm.startPrank(owner);
-    vault.setKeeper(address(0xdeadbeef));
+    // vault.setKeeper(address(0xdeadbeef));
     vm.stopPrank();
 
     // for ERC4626Test setup
