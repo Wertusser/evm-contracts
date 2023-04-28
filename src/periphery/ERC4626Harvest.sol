@@ -12,7 +12,9 @@ interface IERC4626Harvest {
   function expectedReturns(uint256 timestamp) external view returns (uint256);
 
   function harvest(IERC20 reward) external returns (uint256);
-  function swap(IERC20 fromAsset, IERC20 toAsset, uint256 amountIn, uint256 minAmountOut) external returns (uint256);
+  function swap(IERC20 fromAsset, IERC20 toAsset, uint256 amountIn, uint256 minAmountOut)
+    external
+    returns (uint256);
   function tend() external returns (uint256, uint256);
   // function sync() external;
 }
@@ -63,16 +65,16 @@ abstract contract ERC4626Harvest is IERC4626Harvest, ERC4626Vesting, HarvestExt 
     onlyKeeper
     returns (uint256 rewardAmount)
   {
-    Harvest_collectRewards(reward);
+    return Harvest_collectRewards(reward);
   }
 
   function swap(IERC20 fromAsset, IERC20 toAsset, uint256 amountIn, uint256 minAmountOut)
     public
     virtual
     onlyKeeper
-    returns (uint256 rewardAmount)
+    returns (uint256 amountOut)
   {
-    Harvest_swap(fromAsset, toAsset, amountIn, minAmountOut);
+    return Harvest_swap(fromAsset, toAsset, amountIn, minAmountOut);
   }
 
   function tend()
@@ -81,6 +83,6 @@ abstract contract ERC4626Harvest is IERC4626Harvest, ERC4626Vesting, HarvestExt 
     onlyKeeper
     returns (uint256 wantAmount, uint256 feesAmount)
   {
-    Harvest_tend();
+    return Harvest_tend();
   }
 }

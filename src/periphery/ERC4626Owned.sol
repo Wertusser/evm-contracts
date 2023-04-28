@@ -9,7 +9,7 @@ import { ERC20 } from "solmate/tokens/ERC20.sol";
 
 abstract contract ERC4626Owned is ERC4626, Owned {
   /// @notice Maximum deposit limit
-  uint256 public depositLimit = type(uint256).max;
+  uint256 public depositLimit = 1e27;
   /// @notice if emergencyMode is true, user can only withdraw assets
   bool public emergencyMode = false;
 
