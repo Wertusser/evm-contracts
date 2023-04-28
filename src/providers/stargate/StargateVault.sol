@@ -8,7 +8,7 @@ import "../../periphery/FeesController.sol";
 import "../../periphery/Swapper.sol";
 import "../../periphery/ERC4626Harvest.sol";
 
-contract StargateVault is ERC4626Harvest, WithFees {
+contract StargateVault is ERC4626Harvest {
   /// -----------------------------------------------------------------------
   /// Params
   /// -----------------------------------------------------------------------
@@ -43,9 +43,9 @@ contract StargateVault is ERC4626Harvest, WithFees {
       _vaultName(asset_),
       _vaultSymbol(asset_),
       swapper_,
+      feesController_,
       owner_
     )
-    WithFees(feesController_)
   {
     stargatePool = pool_;
     stargateRouter = router_;
@@ -102,7 +102,7 @@ contract StargateVault is ERC4626Harvest, WithFees {
     return info.amount;
   }
 
-  function _collectRewards(IERC20 reward)
+  function Harvest__collectRewards(IERC20 reward)
     internal
     override
     returns (uint256 rewardAmount)
@@ -112,7 +112,7 @@ contract StargateVault is ERC4626Harvest, WithFees {
     rewardAmount = reward.balanceOf(address(this));
   }
 
-  function _reinvest() internal override returns (uint256 wantAmount, uint256 feesAmount) {
+  function Harvest__reinvest() internal override returns (uint256 wantAmount, uint256 feesAmount) {
     uint256 assets = IERC20(poolToken).balanceOf(address(this));
 
     uint256 lpTokensBefore = stargatePool.balanceOf(address(this));

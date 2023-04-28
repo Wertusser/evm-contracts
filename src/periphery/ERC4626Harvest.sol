@@ -20,23 +20,20 @@ interface IERC4626Harvest {
 }
 
 abstract contract ERC4626Harvest is IERC4626Harvest, ERC4626Vesting, HarvestExt {
-  address public keeper;
-
   event SwapperUpdated(address newSwapper);
   event KeeperUpdated(address newKeeper);
-
-  modifier onlyKeeper() {
-    require(msg.sender == keeper, "Error: keeper only method");
-    _;
-  }
 
   constructor(
     IERC20 asset_,
     string memory _name,
     string memory _symbol,
     ISwapper swapper_,
+    IFeesController feesController_,
     address admin_
-  ) ERC4626Vesting(asset_, _name, _symbol, admin_) HarvestExt(swapper_) { }
+  )
+    ERC4626Vesting(asset_, _name, _symbol, feesController_, admin_)
+    HarvestExt(admin_, swapper_)
+  { }
 
   function expectedReturns(uint256 timestamp)
     public
@@ -45,6 +42,26 @@ abstract contract ERC4626Harvest is IERC4626Harvest, ERC4626Vesting, HarvestExt 
     returns (uint256)
   {
     return super.expectedReturns(timestamp);
+  }
+
+  function harvest(IERC20 reward)
+    public
+    override(HarvestExt, IERC4626Harvest)
+    returns (uint256)
+  {
+    return super.harvest(reward);
+  }
+
+  function tend() public override(HarvestExt, IERC4626Harvest) returns (uint256, uint256) {
+    return super.tend();
+  }
+
+  function swap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn, uint256 minAmountOut)
+    public
+    override(HarvestExt, IERC4626Harvest)
+    returns (uint256)
+  {
+    return super.swap(assetFrom, assetTo, amountIn, minAmountOut);
   }
 
   function setKeeper(address account) public onlyOwner {
@@ -57,32 +74,5 @@ abstract contract ERC4626Harvest is IERC4626Harvest, ERC4626Vesting, HarvestExt 
     swapper = nextSwapper;
 
     emit SwapperUpdated(address(swapper));
-  }
-
-  function harvest(IERC20 reward)
-    public
-    virtual
-    onlyKeeper
-    returns (uint256 rewardAmount)
-  {
-    return Harvest_collectRewards(reward);
-  }
-
-  function swap(IERC20 fromAsset, IERC20 toAsset, uint256 amountIn, uint256 minAmountOut)
-    public
-    virtual
-    onlyKeeper
-    returns (uint256 amountOut)
-  {
-    return Harvest_swap(fromAsset, toAsset, amountIn, minAmountOut);
-  }
-
-  function tend()
-    public
-    virtual
-    onlyKeeper
-    returns (uint256 wantAmount, uint256 feesAmount)
-  {
-    return Harvest_tend();
   }
 }

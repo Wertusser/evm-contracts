@@ -9,7 +9,7 @@ import "../../periphery/FeesController.sol";
 import "../../periphery/Swapper.sol";
 import "../../periphery/ERC4626Owned.sol";
 
-contract AaveV3Vault is ERC4626Owned, WithFees {
+contract AaveV3Vault is ERC4626Owned {
   /// -----------------------------------------------------------------------
   /// Libraries usage
   /// -----------------------------------------------------------------------
@@ -60,8 +60,7 @@ contract AaveV3Vault is ERC4626Owned, WithFees {
     IFeesController feesController_,
     address owner_
   )
-    ERC4626Owned(asset_, _vaultName(asset_), _vaultSymbol(asset_), owner_)
-    WithFees(feesController_)
+    ERC4626Owned(asset_, _vaultName(asset_), _vaultSymbol(asset_), feesController_, owner_)
   {
     aToken = aToken_;
     lendingPool = lendingPool_;

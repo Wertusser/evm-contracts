@@ -13,6 +13,11 @@ interface IFeesController {
     address indexed vault, string feeType, uint256 feeAmount, address asset
   );
 
+  function feesCollected(address vault, string memory feeType)
+    external
+    view
+    returns (uint256);
+
   function getFeeBps(address vault, string memory feeType)
     external
     view
@@ -30,35 +35,14 @@ interface IFeesController {
     returns (uint256 feesAmount, uint256 restAmount);
 }
 
-contract WithFees {
-  IFeesController private controller;
-
-  constructor(IFeesController feeController) {
-    controller = feeController;
-  }
-
-  function feesController() public view returns (address) {
-    return address(controller);
-  }
-
-  function payFees(uint256 amount, string memory feeType)
-    public
-    returns (uint256 feesAmount, uint256 restAmount)
-  {
-    return controller.collectFee(amount, feeType);
-  }
-}
-
 contract FeesController is IFeesController, Owned {
   uint24 constant MAX_BPS = 10000; // 100
   uint24 constant MAX_FEE_BPS = 2500; // 25%
 
-  // vault address => amount
-  mapping(address => uint256) public feesCollected;
-  // vault address => treasury => amount
-  mapping(address => mapping(address => uint256)) public feesCollectedByTreasuries;
   // vault address => type => bps
   mapping(address => mapping(string => uint24)) public feesConfig;
+  // vault address => type => amount
+  mapping(address => mapping(string => uint256)) public feesCollected;
   // vault address => treasury address, if address(0) then use fallback treasury
   mapping(address => address) internal _treasuries;
 
@@ -135,11 +119,9 @@ contract FeesController is IFeesController, Owned {
 
     address asset = IERC4626(vault).asset();
 
-    address treasury_ = treasury(vault);
-    IERC20(asset).transferFrom(vault, treasury_, feesAmount);
+    IERC20(asset).transferFrom(vault, treasury(vault), feesAmount);
 
-    feesCollected[vault] += feesAmount;
-    feesCollectedByTreasuries[vault][treasury_] += feesAmount;
+    feesCollected[vault][feeType] += feesAmount;
 
     emit FeesCollected(vault, feeType, feesAmount, asset);
   }

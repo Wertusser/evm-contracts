@@ -5,6 +5,7 @@ import "forge-std/interfaces/IERC20.sol";
 import { ISwapper } from "../periphery/Swapper.sol";
 
 abstract contract HarvestExt {
+  address public keeper;
   /// @notice Swapper contract
   ISwapper public swapper;
   /// @notice total earned amount, used only for expectedReturns()
@@ -17,10 +18,16 @@ abstract contract HarvestExt {
   event Harvest(uint256 amountReward);
   event Tend(uint256 amountWant, uint256 feesAmount);
 
-  constructor(ISwapper swapper_) {
+  constructor(address keeper_, ISwapper swapper_) {
+    keeper = keeper_;
     swapper = swapper_;
     lastTend = block.timestamp;
     created = block.timestamp;
+  }
+
+  modifier onlyKeeper() {
+    require(msg.sender == keeper, "Error: keeper only method");
+    _;
   }
 
   function expectedReturns(uint256 timestamp) public view virtual returns (uint256) {
@@ -33,32 +40,35 @@ abstract contract HarvestExt {
     }
   }
 
-  function Harvest_collectRewards(IERC20 reward)
-    internal
+  function harvest(IERC20 reward)
+    public
     virtual
+    onlyKeeper
     returns (uint256 rewardAmount)
   {
-    _collectRewards(reward);
+    Harvest__collectRewards(reward);
 
     rewardAmount = reward.balanceOf(address(this));
 
     emit Harvest(rewardAmount);
   }
 
-  function Harvest_swap(IERC20 from, IERC20 to, uint256 amountIn, uint256 minAmountOut)
-    internal
+  function swap(IERC20 fromAsset, IERC20 toAsset, uint256 amountIn, uint256 minAmountOut)
+    public
     virtual
+    onlyKeeper
     returns (uint256 amountOut)
   {
-    amountOut = swapper.swap(from, to, amountIn, minAmountOut);
+    amountOut = swapper.swap(fromAsset, toAsset, amountIn, minAmountOut);
   }
 
-  function Harvest_tend()
-    internal
+  function tend()
+    public
     virtual
+    onlyKeeper
     returns (uint256 wantAmount, uint256 feesAmount)
   {
-    (wantAmount, feesAmount) = _reinvest();
+    (wantAmount, feesAmount) = Harvest__reinvest();
 
     totalGain += wantAmount;
     lastTend = block.timestamp;
@@ -66,6 +76,7 @@ abstract contract HarvestExt {
     emit Tend(wantAmount, feesAmount);
   }
 
-  function _collectRewards(IERC20 reward) internal virtual returns (uint256 rewardAmount);
-  function _reinvest() internal virtual returns (uint256 wantAmount, uint256 feesAmount);
+
+  function Harvest__collectRewards(IERC20 reward) internal virtual returns (uint256 rewardAmount);
+  function Harvest__reinvest() internal virtual returns (uint256 wantAmount, uint256 feesAmount);
 }

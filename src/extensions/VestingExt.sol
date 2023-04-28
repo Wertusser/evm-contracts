@@ -24,9 +24,9 @@ abstract contract VestingExt {
     require(block.timestamp >= unlockAt, "Error: rewards is still locked");
 
     uint256 lastTotalAssets = storedTotalAssets + lastGainedAssets;
-    uint256 totalAssets_ = Vesting_totalLiquidity();
+    uint256 totalAssets_ = Vesting__totalLiquidity();
 
-    require(totalAssets_ >= lastTotalAssets, "Error: vault have lose");
+    require(totalAssets_ >= lastTotalAssets, "Error: vault has losses");
 
     uint256 nextGainedAssets = totalAssets_ - lastTotalAssets;
     uint256 end = ((block.timestamp + lockPeriod) / lockPeriod) * lockPeriod;
@@ -39,7 +39,7 @@ abstract contract VestingExt {
     emit Sync(end, nextGainedAssets);
   }
 
-  function Vesting_totalAssets() internal view returns (uint256 assets) {
+  function Vesting__totalAssets() internal view returns (uint256 assets) {
     if (block.timestamp >= unlockAt) {
       return storedTotalAssets + lastGainedAssets;
     }
@@ -54,16 +54,16 @@ abstract contract VestingExt {
     return storedTotalAssets + gainedAssets;
   }
 
-  function Vesting_increaseStoredAssets(uint256 gainAmount) internal {
+  function Vesting__increaseStoredAssets(uint256 gainAmount) internal {
     storedTotalAssets += gainAmount;
   }
 
-  function Vesting_decreaseStoredAssets(uint256 lossAmount) internal {
+  function Vesting__decreaseStoredAssets(uint256 lossAmount) internal {
     require(storedTotalAssets >= lossAmount, "Error: storedAssets < lossAmount");
 
     storedTotalAssets -= lossAmount;
   }
 
-  ///@dev Vesting_totalLiquidity() returns total assets that in vault's control
-  function Vesting_totalLiquidity() internal view virtual returns (uint256 assets);
+  ///@dev Vestina__totalLiquidity() returns total assets that in vault's control
+  function Vesting__totalLiquidity() internal view virtual returns (uint256 assets);
 }

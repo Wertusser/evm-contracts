@@ -6,8 +6,10 @@ import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 import { IERC4626 } from "forge-std/interfaces/IERC4626.sol";
 import { ERC4626 } from "./ERC4626.sol";
 import { ERC20 } from "solmate/tokens/ERC20.sol";
+import { FeesExt } from "../extensions/FeesExt.sol";
+import "./FeesController.sol";
 
-abstract contract ERC4626Owned is ERC4626, Owned {
+abstract contract ERC4626Owned is ERC4626, FeesExt, Owned {
   /// @notice Maximum deposit limit
   uint256 public depositLimit = 1e27;
   /// @notice if emergencyMode is true, user can only withdraw assets
@@ -18,8 +20,15 @@ abstract contract ERC4626Owned is ERC4626, Owned {
   event MetadataUpdated(string name, string symbol);
   event Sweep(address token, address receiver, uint256 amount);
 
-  constructor(IERC20 asset_, string memory _name, string memory _symbol, address admin_)
+  constructor(
+    IERC20 asset_,
+    string memory _name,
+    string memory _symbol,
+    IFeesController feesController_,
+    address admin_
+  )
     ERC4626(ERC20(address(asset_)), _name, _symbol)
+    FeesExt(feesController_)
     Owned(admin_)
   { }
 
@@ -41,6 +50,10 @@ abstract contract ERC4626Owned is ERC4626, Owned {
     symbol = symbol_;
 
     emit MetadataUpdated(name_, symbol_);
+  }
+
+  function setFeesController(IFeesController feesController_) public onlyOwner {
+    _setFeesController(feesController_);
   }
 
   function sweep(address tokenAddress, address receiver, uint256 amount)

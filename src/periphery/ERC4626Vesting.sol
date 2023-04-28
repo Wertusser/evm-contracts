@@ -4,15 +4,20 @@ pragma solidity ^0.8.13;
 import "solmate/auth/Owned.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 import { ERC4626Owned } from "./ERC4626Owned.sol";
+import "./FeesController.sol";
 import { VestingExt } from "../extensions/VestingExt.sol";
 import { ERC20 } from "solmate/tokens/ERC20.sol";
 
 abstract contract ERC4626Vesting is ERC4626Owned, VestingExt {
   event LockPeriodUpdated(uint256 newLockPeriod);
 
-  constructor(IERC20 asset_, string memory _name, string memory _symbol, address admin_)
-    ERC4626Owned(asset_, _name, _symbol, admin_)
-  { }
+  constructor(
+    IERC20 asset_,
+    string memory _name,
+    string memory _symbol,
+    IFeesController feesController_,
+    address admin_
+  ) ERC4626Owned(asset_, _name, _symbol, feesController_, admin_) { }
 
   function setLockPeriod(uint256 _lockPeriod) public onlyOwner {
     lockPeriod = _lockPeriod;
@@ -23,10 +28,10 @@ abstract contract ERC4626Vesting is ERC4626Owned, VestingExt {
   /////////////////
 
   function totalAssets() public view override returns (uint256) {
-    return Vesting_totalAssets();
+    return Vesting__totalAssets();
   }
 
-  function Vesting_totalLiquidity()
+  function Vesting__totalLiquidity()
     internal
     view
     virtual
@@ -44,11 +49,11 @@ abstract contract ERC4626Vesting is ERC4626Owned, VestingExt {
   {
     assets = super.beforeWithdraw(amount, shares);
 
-    Vesting_decreaseStoredAssets(assets);
+    Vesting__decreaseStoredAssets(assets);
   }
 
   function afterDeposit(uint256 amount, uint256 shares) internal virtual override {
-    Vesting_increaseStoredAssets(amount);
+    Vesting__increaseStoredAssets(amount);
 
     super.afterDeposit(amount, shares);
   }

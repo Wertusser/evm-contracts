@@ -10,7 +10,7 @@ import "../../periphery/FeesController.sol";
 import "../../periphery/Swapper.sol";
 import "../../periphery/ERC4626Harvest.sol";
 
-contract CompoundVault is ERC4626Harvest, WithFees {
+contract CompoundVault is ERC4626Harvest {
   /// -----------------------------------------------------------------------
   /// Libraries usage
   /// -----------------------------------------------------------------------
@@ -41,8 +41,14 @@ contract CompoundVault is ERC4626Harvest, WithFees {
     IFeesController feesController_,
     address owner_
   )
-    ERC4626Harvest(asset_, _vaultName(asset_), _vaultSymbol(asset_), swapper_, owner_)
-    WithFees(feesController_)
+    ERC4626Harvest(
+      asset_,
+      _vaultName(asset_),
+      _vaultSymbol(asset_),
+      swapper_,
+      feesController_,
+      owner_
+    )
   {
     cToken = cToken_;
     comptroller = comptroller_;
@@ -59,7 +65,7 @@ contract CompoundVault is ERC4626Harvest, WithFees {
     return cToken.viewUnderlyingBalanceOf(address(this));
   }
 
-  function _collectRewards(IERC20 reward)
+  function Harvest__collectRewards(IERC20 reward)
     internal
     virtual
     override
@@ -70,7 +76,7 @@ contract CompoundVault is ERC4626Harvest, WithFees {
     return reward.balanceOf(address(this));
   }
 
-  function _reinvest()
+  function Harvest__reinvest()
     internal
     virtual
     override
