@@ -7,19 +7,7 @@ import "./ERC4626Vesting.sol";
 import "./Swapper.sol";
 import "../extensions/HarvestExt.sol";
 
-interface IERC4626Harvest {
-  function setSwapper(ISwapper nextSwapper) external;
-  function expectedReturns(uint256 timestamp) external view returns (uint256);
-
-  function harvest(IERC20 reward) external returns (uint256);
-  function swap(IERC20 fromAsset, IERC20 toAsset, uint256 amountIn, uint256 minAmountOut)
-    external
-    returns (uint256);
-  function tend() external returns (uint256, uint256);
-  // function sync() external;
-}
-
-abstract contract ERC4626Harvest is IERC4626Harvest, ERC4626Vesting, HarvestExt {
+abstract contract ERC4626Harvest is ERC4626Vesting, HarvestExt {
   event SwapperUpdated(address newSwapper);
   event KeeperUpdated(address newKeeper);
 
@@ -35,30 +23,21 @@ abstract contract ERC4626Harvest is IERC4626Harvest, ERC4626Vesting, HarvestExt 
     HarvestExt(admin_, swapper_)
   { }
 
-  function expectedReturns(uint256 timestamp)
-    public
-    view
-    override(HarvestExt, IERC4626Harvest)
-    returns (uint256)
-  {
+  function expectedReturns(uint256 timestamp) public view override returns (uint256) {
     return super.expectedReturns(timestamp);
   }
 
-  function harvest(IERC20 reward)
-    public
-    override(HarvestExt, IERC4626Harvest)
-    returns (uint256)
-  {
+  function harvest(IERC20 reward) public override returns (uint256) {
     return super.harvest(reward);
   }
 
-  function tend() public override(HarvestExt, IERC4626Harvest) returns (uint256, uint256) {
+  function tend() public override returns (uint256, uint256) {
     return super.tend();
   }
 
   function swap(IERC20 assetFrom, IERC20 assetTo, uint256 amountIn, uint256 minAmountOut)
     public
-    override(HarvestExt, IERC4626Harvest)
+    override
     returns (uint256)
   {
     return super.swap(assetFrom, assetTo, amountIn, minAmountOut);
