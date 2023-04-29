@@ -44,20 +44,31 @@ contract DeployScript is Script {
 
     StargateVault(vault).setKeeper(KEEPER);
     controller.setFeeBps(vault, "harvest", 1000);
-    controller.setFeeBps(vault, "deposit", 50);
+    // controller.setFeeBps(vault, "deposit", 50);
     // controller.setFeeBps(vault, "withdraw",50);
 
     IStargatePool pool = stargateFactory.getPool(poolId);
     asset.approve(address(vault), firstDeposit);
-    pool.approve(address(vault), firstDeposit);
 
-    StargateVault(vault).zapDeposit(firstDeposit, ADMIN);
-    console.log("Balance - ", StargateVault(vault).maxZapWithdraw(ADMIN));
+    uint256 lpTokens = StargateVault(vault).wrap(asset, firstDeposit, ADMIN);
+    pool.approve(address(vault), lpTokens);
+    StargateVault(vault).deposit(lpTokens, ADMIN);
+    // console.log("Balance - ", StargateVault(vault).maxZapWithdraw(ADMIN));
     STG.transfer(vault, 1e17);
-    StargateVault(vault).harvestTend(STG, 0);
-    console.log("Balance - ", StargateVault(vault).maxZapWithdraw(ADMIN));
-    StargateVault(vault).zapWithdraw(StargateVault(vault).maxZapWithdraw(ADMIN), ADMIN, ADMIN);
-    console.log("Balance - ", StargateVault(vault).maxZapWithdraw(ADMIN));
+    StargateVault(vault).harvest(STG);
+    StargateVault(vault).swap(STG, asset, 1e17, 0);
+    StargateVault(vault).tend();
+
+    uint256 balance = StargateVault(vault).maxWithdraw(ADMIN);
+    StargateVault(vault).withdraw(balance, ADMIN, ADMIN);
+
+    pool.approve(address(vault), balance);
+
+    StargateVault(vault).unwrap(asset, balance, ADMIN, ADMIN);
+    console.log(asset.name(), "Balance after - ", asset.balanceOf(ADMIN));
+
+    console2.log(asset.name(), "-", vault);
+    console.log("Treasury - ", pool.balanceOf(ADMIN));
   }
 
   function run() public payable returns (StargateVaultFactory deployed) {

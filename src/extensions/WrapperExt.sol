@@ -1,7 +1,13 @@
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity ^0.8.13;
+
 import "forge-std/interfaces/IERC20.sol";
 
 abstract contract WrapperExt {
-  function previewWrap(address assetFrom, uint256 amount)
+  event Wrap(address assetFrom, uint256 amount);
+  event Unwrap(address assetTo, uint256 amount);
+
+  function previewWrap(IERC20 assetFrom, uint256 amount)
     public
     view
     virtual
@@ -10,7 +16,7 @@ abstract contract WrapperExt {
     wrappedAmount = Wrapper__previewWrap(assetFrom, amount);
   }
 
-  function previewUnwrap(address assetTo, uint256 wrappedAmount)
+  function previewUnwrap(IERC20 assetTo, uint256 wrappedAmount)
     public
     view
     virtual
@@ -19,7 +25,7 @@ abstract contract WrapperExt {
     amount = Wrapper__previewUnwrap(assetTo, wrappedAmount);
   }
 
-  function wrap(address assetFrom, uint256 amount, address receiver)
+  function wrap(IERC20 assetFrom, uint256 amount, address receiver)
     public
     virtual
     returns (uint256 wrappedAmount)
@@ -32,10 +38,12 @@ abstract contract WrapperExt {
     wrappedAmount = wrappedAsset.balanceOf(address(this)) - balanceBefore;
 
     wrappedAsset.transfer(receiver, wrappedAmount);
+
+    emit Wrap(address(assetFrom), amount);
   }
 
   function unwrap(
-    address assetTo,
+    IERC20 assetTo,
     uint256 wrappedAmount,
     address receiver,
     address owner_
@@ -49,18 +57,19 @@ abstract contract WrapperExt {
     amount = IERC20(assetTo).balanceOf(address(this)) - balanceBefore;
 
     IERC20(assetTo).transfer(receiver, amount);
+
+    emit Unwrap(address(assetTo), amount);
   }
 
   function Wrapper__wrappedAsset() internal view virtual returns (address);
-  function Wrapper__wrap(address assetFrom, uint256 amount) internal virtual;
-  function Wrapper__unwrap(address assetTo, uint256 amount) internal virtual;
-
-  function Wrapper__previewWrap(address assetFrom, uint256 amount)
+  function Wrapper__wrap(IERC20 assetFrom, uint256 amount) internal virtual;
+  function Wrapper__unwrap(IERC20 assetTo, uint256 amount) internal virtual;
+  function Wrapper__previewWrap(IERC20 assetFrom, uint256 amount)
     internal
     view
     virtual
     returns (uint256 wrappedAmount);
-  function Wrapper__previewUnwrap(address assetTo, uint256 wrappedAmount)
+  function Wrapper__previewUnwrap(IERC20 assetTo, uint256 wrappedAmount)
     internal
     view
     virtual

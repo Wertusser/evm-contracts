@@ -29,7 +29,6 @@ contract DeployScript is Script {
   function deployForPool(
     IERC20 asset,
     uint8 coins,
-    uint8 coinId,
     uint256 firstDeposit,
     address gauge,
     address pool,
@@ -38,25 +37,35 @@ contract DeployScript is Script {
     factory.createERC4626(ICurveGauge(gauge), ICurvePool(pool), coins);
     vault =
       address(factory.computeERC4626Address(ICurveGauge(gauge), ICurvePool(pool), coins));
-    console2.log(asset.name(), "-", vault);
 
     CurveVault(vault).setKeeper(KEEPER);
     controller.setFeeBps(vault, "harvest", 1000);
-    controller.setFeeBps(vault, "deposit", 50);
-    // controller.setFeeBps(vault, "withdraw",50);
-    
-    CurveVault(vault).asset().approve(vault, 100e18);
+    // controller.setFeeBps(vault, "deposit", 50);
+    // // controller.setFeeBps(vault, "withdraw",50);
+
+    console.log(asset.name(), "Balance before - ", asset.balanceOf(ADMIN));
     asset.approve(vault, firstDeposit);
 
-    CurveVault(vault).zapDeposit(firstDeposit, coinId, ADMIN);
-    console.log("Balance - ", CurveVault(vault).maxZapWithdraw(ADMIN, coinId));
-    CRV.transfer(vault, 1e17);
-    CurveVault(vault).harvestTend(CRV, 0);
-    console.log("Balance - ", CurveVault(vault).maxZapWithdraw(ADMIN, coinId));
-    CurveVault(vault).zapWithdraw(
-      CurveVault(vault).maxZapWithdraw(ADMIN, coinId), coinId, ADMIN, ADMIN
+    uint256 lpTokens = CurveVault(vault).wrap(asset, firstDeposit, ADMIN);
+    CurveVault(vault).asset().approve(vault, lpTokens * 2);
+    CurveVault(vault).deposit(lpTokens, ADMIN);
+    console.log(
+      "Deposited - ",
+      CurveVault(vault).previewUnwrap(asset, CurveVault(vault).maxWithdraw(ADMIN))
     );
-    console.log("Balance - ", CurveVault(vault).maxZapWithdraw(ADMIN, coinId));
+    CRV.transfer(vault, 1e17);
+    CurveVault(vault).harvest(CRV);
+    // CurveVault(vault).swap(CRV, USDC, 1e17, 0);
+    // CurveVault(vault).tend();
+    // console.log("Balance - ", CurveVault(vault).maxZapWithdraw(ADMIN, coinId));
+    CurveVault(vault).withdraw(CurveVault(vault).maxWithdraw(ADMIN), ADMIN, ADMIN);
+
+    CurveVault(vault).unwrap(
+      asset, CurveVault(vault).asset().balanceOf(ADMIN), ADMIN, ADMIN
+    );
+    console.log(asset.name(), "Balance after - ", asset.balanceOf(ADMIN));
+
+    console2.log(asset.name(), "-", vault);
   }
 
   function run() public payable returns (CurveVaultFactory deployed) {
@@ -77,7 +86,6 @@ contract DeployScript is Script {
     deployForPool(
       USDT,
       3,
-      0,
       1e5,
       address(0x555766f3da968ecBefa690Ffd49A2Ac02f47aa5f),
       address(0x960ea3e3C7FB317332d990873d354E18d7645590),
@@ -87,7 +95,6 @@ contract DeployScript is Script {
     deployForPool(
       USDT,
       2,
-      1,
       1e5,
       address(0xCE5F24B7A95e9cBa7df4B54E911B4A3Dc8CDAf6f),
       address(0x7f90122BF0700F9E7e1F688fe926940E8839F353),
@@ -97,7 +104,6 @@ contract DeployScript is Script {
     deployForPool(
       USDC,
       2,
-      1,
       1e5,
       address(0x95285Ea6fF14F80A2fD3989a6bAb993Bd6b5fA13),
       address(0xC9B8a3FDECB9D5b218d02555a8Baf332E5B740d5),

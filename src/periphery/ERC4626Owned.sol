@@ -53,7 +53,7 @@ abstract contract ERC4626Owned is ERC4626, FeesExt, Owned {
   }
 
   function setFeesController(IFeesController feesController_) public onlyOwner {
-    _setFeesController(feesController_);
+    Fees__setFeesController(feesController_);
   }
 
   function sweep(address tokenAddress, address receiver, uint256 amount)

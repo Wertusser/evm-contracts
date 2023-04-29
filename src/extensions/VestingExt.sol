@@ -53,17 +53,14 @@ abstract contract VestingExt {
       (lastGainedAssets * (block.timestamp - lastSync)) / (unlockAt - lastSync);
     return storedTotalAssets + gainedAssets;
   }
-
   function Vesting__increaseStoredAssets(uint256 gainAmount) internal {
     storedTotalAssets += gainAmount;
   }
-
   function Vesting__decreaseStoredAssets(uint256 lossAmount) internal {
     require(storedTotalAssets >= lossAmount, "Error: storedAssets < lossAmount");
 
     storedTotalAssets -= lossAmount;
   }
-
   ///@dev Vestina__totalLiquidity() returns total assets that in vault's control
   function Vesting__totalLiquidity() internal view virtual returns (uint256 assets);
 }

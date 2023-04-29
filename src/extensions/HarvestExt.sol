@@ -59,6 +59,7 @@ abstract contract HarvestExt {
     onlyKeeper
     returns (uint256 amountOut)
   {
+    fromAsset.approve(address(swapper), amountIn);
     amountOut = swapper.swap(fromAsset, toAsset, amountIn, minAmountOut);
   }
 

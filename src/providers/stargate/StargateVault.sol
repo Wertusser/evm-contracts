@@ -7,8 +7,9 @@ import "./external/IStargatePool.sol";
 import "../../periphery/FeesController.sol";
 import "../../periphery/Swapper.sol";
 import "../../periphery/ERC4626Harvest.sol";
+import "../../extensions/WrapperExt.sol";
 
-contract StargateVault is ERC4626Harvest {
+contract StargateVault is ERC4626Harvest, WrapperExt {
   /// -----------------------------------------------------------------------
   /// Params
   /// -----------------------------------------------------------------------
@@ -59,40 +60,6 @@ contract StargateVault is ERC4626Harvest {
   }
 
   /// -----------------------------------------------------------------------
-  /// Deposit/Wihtdraw Helpers
-  /// -----------------------------------------------------------------------
-  function zapDeposit(uint256 assets, address receiver) public returns (uint256 shares) {
-    IERC20(stargatePool.token()).transferFrom(msg.sender, address(this), assets);
-
-    uint256 lpTokensBefore = stargatePool.balanceOf(msg.sender);
-
-    stargateRouter.addLiquidity(stargatePool.poolId(), assets, msg.sender);
-
-    uint256 lpTokens = stargatePool.balanceOf(msg.sender) - lpTokensBefore;
-
-    shares = super.deposit(lpTokens, receiver);
-  }
-
-  function zapWithdraw(uint256 assets, address receiver, address owner_)
-    public
-    returns (uint256 shares)
-  {
-    assets = getStargateLP(assets); // convert to LP tokens
-
-    uint256 lpTokensBefore = stargatePool.balanceOf(address(this));
-
-    shares = super.withdraw(assets, address(this), owner_);
-
-    uint256 lpTokens = stargatePool.balanceOf(address(this)) - lpTokensBefore;
-
-    stargateRouter.instantRedeemLocal(uint16(stargatePool.poolId()), lpTokens, receiver);
-  }
-
-  function maxZapWithdraw(address owner_) public view returns (uint256 assets) {
-    return stargatePool.amountLPtoLD(maxWithdraw(owner_));
-  }
-
-  /// -----------------------------------------------------------------------
   /// ERC4626 overrides
   /// -----------------------------------------------------------------------
 
@@ -100,32 +67,6 @@ contract StargateVault is ERC4626Harvest {
     IStargateLPStaking.UserInfo memory info =
       stargateLPStaking.userInfo(poolStakingId, address(this));
     return info.amount;
-  }
-
-  function Harvest__collectRewards(IERC20 reward)
-    internal
-    override
-    returns (uint256 rewardAmount)
-  {
-    stargateLPStaking.withdraw(poolStakingId, 0);
-
-    rewardAmount = reward.balanceOf(address(this));
-  }
-
-  function Harvest__reinvest() internal override returns (uint256 wantAmount, uint256 feesAmount) {
-    uint256 assets = IERC20(poolToken).balanceOf(address(this));
-
-    uint256 lpTokensBefore = stargatePool.balanceOf(address(this));
-
-    stargateRouter.addLiquidity(stargatePool.poolId(), assets, address(this));
-
-    uint256 lpTokensAfter = stargatePool.balanceOf(address(this));
-
-    uint256 lpTokens = lpTokensAfter - lpTokensBefore;
-
-    (feesAmount, wantAmount) = payFees(lpTokens, "harvest");
-
-    stargateLPStaking.deposit(poolStakingId, wantAmount);
   }
 
   function beforeWithdraw(uint256 assets, uint256 shares)
@@ -173,8 +114,67 @@ contract StargateVault is ERC4626Harvest {
     return cashInShares < shareBalance ? cashInShares : shareBalance;
   }
 
+  function Harvest__collectRewards(IERC20 reward)
+    internal
+    override
+    returns (uint256 rewardAmount)
+  {
+    stargateLPStaking.withdraw(poolStakingId, 0);
+
+    rewardAmount = reward.balanceOf(address(this));
+  }
+
+  function Harvest__reinvest()
+    internal
+    override
+    returns (uint256 wantAmount, uint256 feesAmount)
+  {
+    uint256 assets = IERC20(poolToken).balanceOf(address(this));
+
+    uint256 lpTokensBefore = stargatePool.balanceOf(address(this));
+    Wrapper__wrap(IERC20(poolToken), assets);
+    uint256 lpTokens = stargatePool.balanceOf(address(this)) - lpTokensBefore;
+
+    (feesAmount, wantAmount) = payFees(lpTokens, "harvest");
+    stargateLPStaking.deposit(poolStakingId, wantAmount);
+  }
+
+  function Wrapper__wrappedAsset() internal view virtual override returns (address) {
+    return address(asset);
+  }
+
+  function Wrapper__wrap(IERC20, uint256 amount) internal virtual override {
+    IERC20(poolToken).approve(address(stargateRouter), amount);
+    stargateRouter.addLiquidity(stargatePool.poolId(), amount, address(this));
+  }
+
+  function Wrapper__unwrap(IERC20 , uint256 amount) internal virtual override {
+    asset.approve(address(stargateRouter), amount);
+    stargateRouter.instantRedeemLocal(uint16(stargatePool.poolId()), amount, address(this));
+  }
+
+  function Wrapper__previewWrap(IERC20 , uint256 amount)
+    internal
+    view
+    virtual
+    override
+    returns (uint256 wrappedAmount)
+  {
+    wrappedAmount = getStargateLP(amount);
+  }
+
+  function Wrapper__previewUnwrap(IERC20 , uint256 wrappedAmount)
+    internal
+    view
+    virtual
+    override
+    returns (uint256 amount)
+  {
+    amount = stargatePool.amountLPtoLD(wrappedAmount);
+  }
+
   /// -----------------------------------------------------------------------
-  /// Internal Stargate fuctions
+  /// Helper Stargate fuctions
   /// -----------------------------------------------------------------------
 
   function getStargateLP(uint256 amount_) internal view returns (uint256 lpTokens) {
@@ -189,7 +189,7 @@ contract StargateVault is ERC4626Harvest {
 
     uint256 LDToSD = amount_ / convertRate;
 
-    lpTokens = LDToSD * totalSupply_ / totalLiquidity_;
+    lpTokens = (LDToSD * totalSupply_) / totalLiquidity_;
   }
 
   /// -----------------------------------------------------------------------

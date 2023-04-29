@@ -1,15 +1,17 @@
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity ^0.8.13;
 import "../periphery/FeesController.sol";
 
 contract FeesExt {
   IFeesController private controller;
-    
-    event FeesControllerUpdated(IFeesController newFeesController);
+
+  event FeesControllerUpdated(IFeesController newFeesController);
 
   constructor(IFeesController feeController) {
     controller = feeController;
   }
 
-  function _setFeesController(IFeesController controller_) internal {
+  function Fees__setFeesController(IFeesController controller_) internal {
     controller = controller_;
 
     emit FeesControllerUpdated(controller);
