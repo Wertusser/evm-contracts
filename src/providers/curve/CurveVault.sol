@@ -217,9 +217,9 @@ contract CurveVault is ERC4626Harvest, WrapperExt {
     returns (uint256 wantAmount, uint256 feesAmount)
   {
     uint256 assets = redeemAsset.balanceOf(address(this));
-    redeemAsset.approve(address(curvePool), assets);
     uint256 lpTokensBefore = lpToken.balanceOf(address(this));
 
+    redeemAsset.approve(address(curvePool), assets);
     Wrapper__wrap(redeemAsset, assets);
 
     uint256 lpTokens = lpToken.balanceOf(address(this)) - lpTokensBefore;

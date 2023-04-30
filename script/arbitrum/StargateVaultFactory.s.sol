@@ -54,21 +54,21 @@ contract DeployScript is Script {
     pool.approve(address(vault), lpTokens);
     StargateVault(vault).deposit(lpTokens, ADMIN);
     // console.log("Balance - ", StargateVault(vault).maxZapWithdraw(ADMIN));
-    STG.transfer(vault, 1e17);
-    StargateVault(vault).harvest(STG);
-    StargateVault(vault).swap(STG, asset, 1e17, 0);
-    StargateVault(vault).tend();
+    // STG.transfer(vault, 1e17);
+    // StargateVault(vault).harvest(STG);
+    // StargateVault(vault).swap(STG, asset, 1e17, 0);
+    // StargateVault(vault).tend();
 
-    uint256 balance = StargateVault(vault).maxWithdraw(ADMIN);
-    StargateVault(vault).withdraw(balance, ADMIN, ADMIN);
+    // uint256 balance = StargateVault(vault).maxWithdraw(ADMIN);
+    // StargateVault(vault).withdraw(balance, ADMIN, ADMIN);
 
-    pool.approve(address(vault), balance);
+    // pool.approve(address(vault), balance);
 
-    StargateVault(vault).unwrap(asset, balance, ADMIN, ADMIN);
-    console.log(asset.name(), "Balance after - ", asset.balanceOf(ADMIN));
+    // StargateVault(vault).unwrap(asset, balance, ADMIN, ADMIN);
+    // console.log(asset.name(), "Balance after - ", asset.balanceOf(ADMIN));
 
-    console2.log(asset.name(), "-", vault);
-    console.log("Treasury - ", pool.balanceOf(ADMIN));
+    // console2.log(asset.name(), "-", vault);
+    // console.log("Treasury - ", pool.balanceOf(ADMIN));
   }
 
   function run() public payable returns (StargateVaultFactory deployed) {
@@ -90,7 +90,7 @@ contract DeployScript is Script {
 
     //
     deployForPool(USDC, 1, 0, 1e6, deployed);
-    deployForPool(USDT, 2, 1, 1e6, deployed);
+    // deployForPool(USDT, 2, 1, 1e6, deployed);
     // deployForPool(WETH, 13, 2, 1e6, deployed);
     // deployForPool(FRAX, 7, 3, 1e6, deployed);
 
