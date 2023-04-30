@@ -39,14 +39,14 @@ contract StargateLPStakingMock is IStargateLPStaking, StakePoolMock {
       return;
     }
     depositStake(_amount);
-    collectRewardTokens();
+    // collectRewardTokens();
   }
 
   function withdraw(uint256 _pid, uint256 _amount) external {
     if (_amount == 0) {
       return;
     }
-    collectRewardTokens();
+    // collectRewardTokens();
     withdrawStake(_amount);
 
   }

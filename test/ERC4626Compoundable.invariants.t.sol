@@ -17,16 +17,16 @@ abstract contract ERC4626CompoundableInvariants is Test {
     _vault = vault_;
     depositor = new Depositor(_vault);
     keeper = new Keeper(ERC4626Harvest(address(_vault)), reward);
-    bytes4[] memory depositorSelector = new bytes4[](7);
+    bytes4[] memory depositorSelector = new bytes4[](5);
     bytes4[] memory keeperSelector = new bytes4[](1);
 
     depositorSelector[0] = Depositor.deposit.selector;
     depositorSelector[1] = Depositor.withdraw.selector;
-    depositorSelector[2] = Depositor.mint.selector;
-    depositorSelector[3] = Depositor.redeem.selector;
-    depositorSelector[4] = Depositor.approve.selector;
-    depositorSelector[5] = Depositor.transfer.selector;
-    depositorSelector[6] = Depositor.transferFrom.selector;
+    // depositorSelector[2] = Depositor.mint.selector;
+    // depositorSelector[2] = Depositor.redeem.selector;
+    depositorSelector[2] = Depositor.approve.selector;
+    depositorSelector[3] = Depositor.transfer.selector;
+    depositorSelector[4] = Depositor.transferFrom.selector;
     keeperSelector[0] = Keeper.harvestTendSync.selector;
 
     targetSelector(

@@ -6,7 +6,9 @@ import { IERC20 as IIERC20 } from "forge-std/interfaces/IERC20.sol";
 
 import { ERC20Mock } from "../mocks/ERC20.m.sol";
 import { SwapperMock } from "../mocks/Swapper.m.sol";
-import { StargateVault, IStargatePool } from "../../src/providers/stargate/StargateVault.sol";
+import {
+  StargateVault, IStargatePool
+} from "../../src/providers/stargate/StargateVault.sol";
 import { ISwapper } from "../../src/periphery/Swapper.sol";
 import { FeesController } from "../../src/periphery/FeesController.sol";
 import { StargatePoolMock } from "./mocks/Pool.m.sol";
@@ -53,7 +55,7 @@ contract StargateVaultStdTest is ERC4626Test {
           owner
         );
 
-    _underlying_ = address(underlying);
+    _underlying_ = address(poolMock);
     _vault_ = address(vault);
     _delta_ = 1;
     _vaultMayBeEmpty = false;

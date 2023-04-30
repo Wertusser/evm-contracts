@@ -91,7 +91,7 @@ contract StakePoolMock {
     // require(amount > 0, "Cannot stake 0");
     _totalSupply += amount;
     _balances[msg.sender] += amount;
-    stakingToken.transferFrom2(msg.sender, address(this), amount);
+    stakingToken.transferFrom(msg.sender, address(this), amount);
     emit Staked(msg.sender, amount);
   }
 

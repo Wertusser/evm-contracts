@@ -30,11 +30,6 @@ contract ERC20Mock is ERC20("MockERC20", "MOCK", 18) {
   function setAllowance(address from, address to, uint256 amount) public {
     _allowances[from][to] = amount;
   }
-
-  function transferFrom2(address from, address to, uint256 amount) public {
-    burn(from, amount);
-    mint(to, amount);
-  }
 }
 
 contract WERC20Mock is ERC20Mock {
